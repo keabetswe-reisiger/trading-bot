@@ -168,3 +168,24 @@ close proxy for spot XAU_USD — Yahoo doesn't carry spot gold FX history:
 python -m backtest.run GC=F
 python -m backtest.tune_gold   # small grid search over ATR stop/target/hold settings
 ```
+
+**Current honest result**: a 12-combination sweep over ATR stop multiplier
+(1.0–2.0), reward:risk (1.5–2.0) and max-hold-time (15/30 min) against one
+week of real `GC=F` 1-minute data lost money in **every single combination**
+(-3.0% to -3.7%, 14-29% win rate). Exit tuning can't fix a losing entry
+signal — it only moves losses around. This means the stock-tuned EMA/RSI/VWAP
+entry logic does not currently show an edge on gold in this sample. Treat the
+gold bot as **not validated** until either a longer/different backtest window
+shows different results, or the entry logic itself is reworked for gold's
+behavior specifically. Running it on the OANDA demo account is still safe
+(zero real money) and useful as further forward-testing data, just don't
+mistake "it's running" for "it's proven to work."
+
+## Running it on your phone (Termux/Android)
+
+See [`termux/README.md`](termux/README.md) — runs `main_gold.py` directly on
+an Android phone via Termux + a Debian environment (`proot-distro`), with
+scripts to keep it alive in the background and auto-start on reboot. The code
+is also pushed to a private GitHub repo
+(`github.com/keabetswe-reisiger/trading-bot`) so it can be pulled onto any
+device, not just this one.
