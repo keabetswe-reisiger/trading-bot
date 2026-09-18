@@ -10,6 +10,8 @@ import json
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from logs.pause_flag import is_paused, pause, resume
+
 STATUS_PATH = os.path.join(os.path.dirname(__file__), "logs", "status.json")
 TRADES_PATH = os.path.join(os.path.dirname(__file__), "logs", "trades.csv")
 PORT = 8765
@@ -40,6 +42,14 @@ def _render_html() -> str:
     error = status.get("error")
     banner = f'<div class="banner error">Last loop error: {error}</div>' if error else ""
 
+    paused = is_paused()
+    if paused:
+        pause_banner = '<div class="banner paused">PAUSED — not opening new trades. Existing positions are still managed.</div>'
+        pause_button = '<a class="button resume" href="/resume">Resume trading</a>'
+    else:
+        pause_banner = ""
+        pause_button = '<a class="button pause" href="/pause">Pause trading</a>'
+
     rows = "".join(
         f"<tr><td>{t['timestamp_utc']}</td><td>{t['symbol']}</td><td>{t['side']}</td>"
         f"<td>{t['qty']}</td><td>{t['entry_price']}</td><td>{t['take_profit']}</td>"
@@ -66,6 +76,10 @@ def _render_html() -> str:
   .card .value {{ font-size:1.3em; font-weight:600; margin-top:4px; }}
   .message {{ background:#1a1a22; border-radius:10px; padding:12px 16px; margin-bottom:16px; }}
   .banner.error {{ background:#3a1a1a; border:1px solid #a33; border-radius:10px; padding:10px 14px; margin-bottom:16px; }}
+  .banner.paused {{ background:#3a2f1a; border:1px solid #a83; border-radius:10px; padding:10px 14px; margin-bottom:16px; }}
+  .button {{ display:inline-block; padding:10px 18px; border-radius:8px; text-decoration:none; font-weight:600; margin-bottom:16px; }}
+  .button.pause {{ background:#a83; color:#111; }}
+  .button.resume {{ background:#3a3; color:#111; }}
   table {{ width:100%; border-collapse:collapse; font-size:0.82em; background:#1a1a22; border-radius:10px; overflow:hidden; }}
   td, th {{ border-bottom:1px solid #2a2a32; padding:8px; text-align:left; }}
   th {{ opacity:0.6; font-weight:600; font-size:0.8em; text-transform:uppercase; }}
@@ -75,11 +89,13 @@ def _render_html() -> str:
 <h1>Gold Bot — {status.get('instrument', '?')}</h1>
 <div class="updated">Updated: {status.get('updated_utc', '?')} &middot; mode: {status.get('entry_mode', '?')} &middot; {status.get('environment', '?')}</div>
 {banner}
+{pause_banner}
 <div class="cards">
   <div class="card"><div class="label">Equity</div><div class="value">{equity_html}</div></div>
   <div class="card"><div class="label">Open Position</div><div class="value">{position_html}</div></div>
   <div class="card"><div class="label">Market Tradeable</div><div class="value">{tradeable_html}</div></div>
 </div>
+{pause_button}
 <div class="message">{status.get('message', '—')}</div>
 <h2>Recent trades</h2>
 <table><tr><th>Time (UTC)</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>TP</th><th>SL</th></tr>
@@ -91,10 +107,23 @@ def _render_html() -> str:
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path == "/pause":
+            pause()
+            self._redirect_home()
+            return
+        if self.path == "/resume":
+            resume()
+            self._redirect_home()
+            return
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
         self.wfile.write(_render_html().encode("utf-8"))
+
+    def _redirect_home(self):
+        self.send_response(303)
+        self.send_header("Location", "/")
+        self.end_headers()
 
     def log_message(self, format, *args):
         pass  # keep the terminal quiet

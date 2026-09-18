@@ -91,20 +91,41 @@ one taps to run without opening Termux manually. "Start" launches the bot
 and dashboard together and opens the dashboard in your browser
 automatically.
 
+**3. Notifications + auto-restart watchdog** — a background process on the
+Termux host that (a) restarts the bot or dashboard if either dies
+unexpectedly, and (b) sends a phone notification (via Termux:API) when a
+trade opens/closes, the daily loss limit hits, or a loop error occurs. It's
+started automatically by the "Start Gold Bot" widget button, or manually:
+```bash
+tmux new-session -d -s goldwatch "bash trading-bot/termux/watchdog.sh"
+```
+
+**4. Pause/Resume** — the dashboard has a button to pause the bot (stops it
+from opening new trades; any position already open is still managed to its
+take-profit/stop-loss/max-hold-time) without needing to touch Termux at all.
+
 ## Keeping it up to date
 
-Since the code lives on GitHub, pull the latest version instead of re-cloning:
+**There are two separate copies of this code on the phone** — one on the
+Termux host (used by the scripts in `termux/`), one inside the Debian
+environment (used to actually run the bot/dashboard, since that's where
+pandas/numpy live). They don't auto-sync with each other, which is a real
+source of confusion (hit repeatedly during initial setup — "site can't be
+reached" turned out to mean the Debian copy was out of date). One command
+updates both:
 ```bash
-proot-distro login debian
-cd trading-bot && git pull
-source venv/bin/activate && pip install -r requirements.txt
+bash trading-bot/termux/update_all.sh
 ```
 
 ## Honest caveat
 
-These scripts are written from documented Termux/proot-distro behavior but
-haven't been tested on an actual device from this session (no Android phone
-available here) — the underlying Python code (`main_gold.py`, strategy,
-broker) has been tested independently, but if a step in these scripts
-doesn't work exactly as written on your phone, tell me the error and I'll
-adjust it.
+These scripts are written from documented Termux/proot-distro behavior. The
+core bot logic (`main_gold.py`, strategy, broker) has been tested
+independently and confirmed working against a real OANDA demo account
+during setup — including catching and fixing a real bug
+(`NO_SUCH_POSITION` on a fresh account's first check). The dashboard and
+pause/resume feature have been tested end-to-end locally (a real HTTP
+server, real requests). The notification/watchdog script
+(`watchdog.sh`) has not been tested on an actual device — if
+`termux-notification` doesn't fire or the auto-restart doesn't work as
+described, tell me the exact behavior and I'll adjust it.

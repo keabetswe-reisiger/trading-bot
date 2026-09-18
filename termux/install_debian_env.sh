@@ -8,7 +8,7 @@
 set -e
 
 pkg update -y && pkg upgrade -y
-pkg install -y proot-distro git termux-api tmux
+pkg install -y proot-distro git termux-api tmux jq
 
 if ! proot-distro list | grep -q "debian.*installed"; then
   proot-distro install debian

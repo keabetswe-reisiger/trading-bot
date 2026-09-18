@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 import config_gold as config
 from execution.oanda_broker import OandaBroker
+from logs.pause_flag import is_paused
 from logs.status_writer import write_status
 from logs.trade_logger import log_trade
 from risk.risk_manager import RiskManager
@@ -67,6 +68,12 @@ def run_once(broker: OandaBroker, risk: RiskManager) -> dict:
         _state["open_since"] = None
 
     status["has_position"] = False
+    status["paused"] = is_paused()
+
+    if status["paused"]:
+        status["message"] = "Paused — not opening new trades (existing positions still managed)"
+        status["equity"] = broker.get_equity()
+        return status
 
     if risk.daily_loss_limit_hit():
         status["message"] = "Daily loss limit hit — no new positions today"
