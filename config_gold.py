@@ -20,7 +20,7 @@ MAX_OPEN_POSITIONS = int(os.getenv("GOLD_MAX_OPEN_POSITIONS", "1"))
 # Left at 0 (disabled) by default until you've observed a sane baseline for XAU_USD.
 MIN_AVG_VOLUME = int(os.getenv("GOLD_MIN_AVG_VOLUME", "0"))
 
-ENTRY_MODE = os.getenv("GOLD_ENTRY_MODE", "pullback")  # "pullback" (gold-specific) or "crossover" (stock-style)
+ENTRY_MODE = os.getenv("GOLD_ENTRY_MODE", "stophunt")  # "stophunt", "pullback", "divergence", or "crossover"
 RESTRICT_SESSION = os.getenv("GOLD_RESTRICT_SESSION", "true").strip().lower() in ("1", "true", "yes")
 
 STOP_MODE = os.getenv("GOLD_STOP_MODE", "atr")

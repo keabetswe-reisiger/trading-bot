@@ -59,6 +59,8 @@ def simulate(
     entry_window: int = 60,
     trend_window: int = 30,
     entry_signal_fn=None,
+    min_trend_agree: int = 3,
+    min_confirm_agree: int = 1,
 ) -> BacktestResult:
     risk = RiskManager(starting_equity, risk_per_trade_pct, daily_loss_limit_pct, max_open_positions=1)
     equity = starting_equity
@@ -105,7 +107,7 @@ def simulate(
                 continue
             bars_by_tf[label] = df.loc[:t].tail(trend_window)
 
-        kwargs = {"min_avg_volume": min_avg_volume}
+        kwargs = {"min_avg_volume": min_avg_volume, "min_trend_agree": min_trend_agree, "min_confirm_agree": min_confirm_agree}
         if entry_signal_fn is not None:
             kwargs["entry_signal_fn"] = entry_signal_fn
         signal = aligned_signal(bars_by_tf, **kwargs)

@@ -199,11 +199,47 @@ spread-free backtest — and note **this backtest doesn't model bid/ask
 spread or slippage at all**, so real execution would very likely perform
 *worse* than these already-negative numbers, not better.
 
-**Bottom line**: don't treat this as a working strategy. It's safe to run
-against the OANDA demo account (zero real money) as a forward-testing/
-learning exercise and to validate the mechanics (data feed, order execution,
-risk controls all functioning correctly), but there is currently no backtest
-evidence that it executes gold trades accurately or profitably.
+**Update — two more ideas tested, one is the current best candidate.**
+
+From a gold-trading education video, two concepts were concrete enough to
+actually codify and test (the other two — supply/demand zones and trendline
+breakouts — require subjective manual judgment to draw and can't be turned
+into an unambiguous rule without just inventing an arbitrary version):
+
+- **Liquidity sweep / "stop hunt" at support-resistance**
+  (`strategy/gold_price_action.py:stophunt_signal`) — price wicks past a
+  recent swing high/low, then closes back on the other side. Combined with
+  multi-timeframe trend confirmation: **73 trades, 45.2% win rate, +2.31%
+  return, avg R +0.04** on the 1-week 1-minute sample — the largest trade
+  count of anything tested, and the first genuinely positive result with
+  enough trades to mean something.
+- **RSI divergence** (`divergence_signal`) — still lost money (-3.4% to -3.9%).
+
+Also confirmed something important by testing *with* and *without* the
+multi-timeframe confirmation layer: for this stop-hunt signal, confirmation
+helped a lot (bare: 318 trades, -7.5%; confirmed: 73 trades, +2.3%) — the
+opposite of what the swing-strategy test showed, where confirmation hurt.
+There's no universal rule here; it has to be tested per signal.
+
+**Why this still isn't "found it"**: an average R-multiple of +0.04 is a
+razor-thin margin — likely smaller than gold's typical bid-ask spread, which
+this backtest still doesn't model. Max drawdown (9.2%) also exceeds the
+total return (2.3%), a rough risk-adjusted profile. An attempt to check this
+on a bigger, different dataset (60 days of 5-minute bars) wasn't a clean
+test — the signal's lookback parameters were tuned for 1-minute bars and
+barely fired at 5-minute granularity (5-7 trades), so it neither confirms
+nor refutes generalization.
+
+**Bottom line after 6 tested approaches** (crossover scalp, pullback scalp,
+mean-reversion fade, raw swing crossover, multi-timeframe-confirmed swing,
+stop-hunt, divergence): stop-hunt is the current best candidate and is now
+`main_gold.py`'s default (`GOLD_ENTRY_MODE=stophunt`), but "best of six" is
+not the same as "validated." Don't treat this as a proven strategy. It's
+safe to run against the OANDA demo account (zero real money) as a
+forward-testing/learning exercise and to validate the mechanics (data feed,
+order execution, risk controls), but there is currently no strong backtest
+evidence that it executes gold trades reliably profitably — real spread and
+slippage costs, not modeled here, would likely erode this thin an edge.
 
 ## Running it on your phone (Termux/Android)
 
