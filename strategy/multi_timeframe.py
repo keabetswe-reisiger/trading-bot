@@ -45,13 +45,23 @@ def aligned_signal(
     min_trend_agree: int = 3,
     min_confirm_agree: int = 1,
     min_avg_volume: int = 0,
+    entry_signal_fn=generate_signal,
 ) -> str | None:
     """Entry timeframe fires first; higher timeframes must confirm the direction.
 
     bars_by_tf: {"1h": df, "30m": df, ..., "1m": df} — whichever of TIMEFRAMES
     keys you fetched. Missing keys are treated as "no opinion", not a veto.
+
+    entry_signal_fn: bars -> "long"/"short"/None. Defaults to the plain
+    crossover trigger; pass a different one (e.g. strategy.gold_entry's
+    pullback trigger) to swap the entry logic while keeping the same
+    trend-confirmation voting below.
     """
-    entry_signal = generate_signal(bars_by_tf.get(ENTRY_TIMEFRAME, pd.DataFrame()), min_avg_volume=min_avg_volume)
+    entry_bars = bars_by_tf.get(ENTRY_TIMEFRAME, pd.DataFrame())
+    if min_avg_volume and (entry_bars.empty or entry_bars["volume"].tail(10).mean() < min_avg_volume):
+        return None
+
+    entry_signal = entry_signal_fn(entry_bars)
     if entry_signal is None:
         return None
 

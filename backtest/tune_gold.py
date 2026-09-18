@@ -7,9 +7,12 @@ results can easily be noise. Look for settings that are stable across nearby
 values, not a single spike.
 """
 
+from functools import partial
+
 from backtest.data import fetch_1m_bars
 from backtest.engine import simulate
 from backtest.metrics import summarize
+from strategy.gold_entry import pullback_signal
 from strategy.resample import build_multi_timeframe
 
 ATR_MULTIPLIERS = [1.0, 1.5, 2.0]
@@ -17,7 +20,7 @@ REWARD_RISK_RATIOS = [1.5, 2.0]
 MAX_HOLDS = [15, 30]
 
 
-def run(symbol: str = "GC=F") -> None:
+def run(symbol: str = "GC=F", entry_signal_fn=None) -> None:
     bars = fetch_1m_bars(symbol)
     tf_data = build_multi_timeframe(bars)
 
@@ -36,6 +39,7 @@ def run(symbol: str = "GC=F") -> None:
                     reward_risk_ratio=rr,
                     max_hold_minutes=hold,
                     min_avg_volume=0,
+                    entry_signal_fn=entry_signal_fn,
                 )
                 m = summarize(result, starting_equity=100_000.0)
                 rows.append((atr_mult, rr, hold, m))
@@ -49,4 +53,4 @@ def run(symbol: str = "GC=F") -> None:
 
 
 if __name__ == "__main__":
-    run()
+    run(entry_signal_fn=partial(pullback_signal, restrict_session=True))

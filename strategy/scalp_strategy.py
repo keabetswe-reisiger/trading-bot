@@ -42,15 +42,9 @@ def compute_indicators(bars: pd.DataFrame, fast: int = 9, slow: int = 21, rsi_pe
     return out
 
 
-def generate_signal(bars: pd.DataFrame, min_avg_volume: int = 0) -> str | None:
-    """bars: recent 1-min OHLCV, at least ~25 rows, oldest first.
-
-    min_avg_volume: skip thin symbols where scalping slippage would eat the
-    edge (checked against the average volume of the last 10 bars).
-    """
+def generate_signal(bars: pd.DataFrame) -> str | None:
+    """bars: recent 1-min OHLCV, at least ~25 rows, oldest first."""
     if len(bars) < 25:
-        return None
-    if min_avg_volume and bars["volume"].tail(10).mean() < min_avg_volume:
         return None
 
     ind = compute_indicators(bars)

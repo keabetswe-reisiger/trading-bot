@@ -169,17 +169,41 @@ python -m backtest.run GC=F
 python -m backtest.tune_gold   # small grid search over ATR stop/target/hold settings
 ```
 
-**Current honest result**: a 12-combination sweep over ATR stop multiplier
-(1.0–2.0), reward:risk (1.5–2.0) and max-hold-time (15/30 min) against one
-week of real `GC=F` 1-minute data lost money in **every single combination**
-(-3.0% to -3.7%, 14-29% win rate). Exit tuning can't fix a losing entry
-signal — it only moves losses around. This means the stock-tuned EMA/RSI/VWAP
-entry logic does not currently show an edge on gold in this sample. Treat the
-gold bot as **not validated** until either a longer/different backtest window
-shows different results, or the entry logic itself is reworked for gold's
-behavior specifically. Running it on the OANDA demo account is still safe
-(zero real money) and useful as further forward-testing data, just don't
-mistake "it's running" for "it's proven to work."
+**Current honest result — this has not found a working edge on gold yet.**
+
+Two different entry designs were tested against the same real `GC=F`
+1-minute data:
+
+1. The stock-style EMA-crossover trigger, swept across 12 exit-parameter
+   combinations (ATR stop multiplier, reward:risk, max-hold-time): **every
+   combination lost money** (-3.0% to -3.7%, 14-29% win rate).
+2. A gold-specific reworked trigger (`strategy/gold_entry.py`) that waits
+   for a pullback to the fast EMA and a same-direction confirmation candle,
+   restricted to London/NY trading hours: swept across the same 12
+   exit-parameter combinations, **also lost money in every single one**
+   (-3.0% to -3.94%, 0-27% win rate — several combinations traded too little,
+   4-8 trades, to say much beyond "still not profitable here").
+3. Added a US Dollar Index (DXY) inverse-correlation filter as an extra
+   "live trend" input — professional gold traders do watch this. It made
+   **zero difference** in this test window because DXY was persistently
+   bullish the whole week, so it never actually blocked a trade either way.
+   Not adopted, since a filter with no measured effect is unjustified
+   complexity, not a proven improvement.
+
+Two independently-designed entry signals losing money on the same data,
+plus a legitimate macro filter having no effect, points at something more
+fundamental than "wrong parameters": either this one week was a genuinely
+unfavorable sample for this style of strategy, or short-term technical
+scalping on gold at this timeframe doesn't have enough edge to clear even a
+spread-free backtest — and note **this backtest doesn't model bid/ask
+spread or slippage at all**, so real execution would very likely perform
+*worse* than these already-negative numbers, not better.
+
+**Bottom line**: don't treat this as a working strategy. It's safe to run
+against the OANDA demo account (zero real money) as a forward-testing/
+learning exercise and to validate the mechanics (data feed, order execution,
+risk controls all functioning correctly), but there is currently no backtest
+evidence that it executes gold trades accurately or profitably.
 
 ## Running it on your phone (Termux/Android)
 

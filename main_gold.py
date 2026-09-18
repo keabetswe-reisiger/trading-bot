@@ -19,10 +19,18 @@ from execution.oanda_broker import OandaBroker
 from logs.trade_logger import log_trade
 from risk.risk_manager import RiskManager
 from strategy.exits import compute_exit_levels
+from strategy.gold_entry import pullback_signal
 from strategy.multi_timeframe import aligned_signal
+from strategy.scalp_strategy import generate_signal
 from strategy.resample import build_multi_timeframe
 
 _state = {"open_since": None}
+
+
+def _entry_signal_fn(bars):
+    if config.ENTRY_MODE == "pullback":
+        return pullback_signal(bars, restrict_session=config.RESTRICT_SESSION)
+    return generate_signal(bars)
 
 
 def run_once(broker: OandaBroker, risk: RiskManager) -> None:
@@ -53,7 +61,7 @@ def run_once(broker: OandaBroker, risk: RiskManager) -> None:
         return
 
     tf_data = build_multi_timeframe(bars_1m)
-    signal = aligned_signal(tf_data, min_avg_volume=config.MIN_AVG_VOLUME)
+    signal = aligned_signal(tf_data, min_avg_volume=config.MIN_AVG_VOLUME, entry_signal_fn=_entry_signal_fn)
     if signal is None:
         return
 
