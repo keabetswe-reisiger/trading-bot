@@ -15,6 +15,7 @@ import oandapyV20.endpoints.positions as positions
 import oandapyV20.endpoints.pricing as pricing
 import pandas as pd
 from oandapyV20.contrib.requests import MarketOrderRequest, StopLossDetails, TakeProfitDetails
+from oandapyV20.exceptions import V20Error
 
 import config_gold as config
 
@@ -39,7 +40,15 @@ class OandaBroker:
 
     def get_open_position_units(self, instrument: str) -> float:
         r = positions.PositionDetails(self.account_id, instrument)
-        self.client.request(r)
+        try:
+            self.client.request(r)
+        except V20Error as exc:
+            # OANDA errors (rather than returning zero) when a position has
+            # never existed for this instrument on the account — normal on
+            # a fresh account before its first trade.
+            if "NO_SUCH_POSITION" in str(exc):
+                return 0.0
+            raise
         pos = r.response["position"]
         return float(pos["long"]["units"]) + float(pos["short"]["units"])
 
