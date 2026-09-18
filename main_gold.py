@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 import config_gold as config
 from execution.oanda_broker import OandaBroker
+from logs.status_writer import write_status
 from logs.trade_logger import log_trade
 from risk.risk_manager import RiskManager
 from strategy.exits import compute_exit_levels
@@ -38,10 +39,14 @@ def _entry_signal_fn(bars):
     return generate_signal(bars)
 
 
-def run_once(broker: OandaBroker, risk: RiskManager) -> None:
+def run_once(broker: OandaBroker, risk: RiskManager) -> dict:
+    status = {"instrument": config.INSTRUMENT, "entry_mode": config.ENTRY_MODE, "environment": config.OANDA_ENVIRONMENT}
+
     if not broker.is_tradeable(config.INSTRUMENT):
-        print(f"{config.INSTRUMENT} not tradeable right now, sleeping...")
-        return
+        status["message"] = f"{config.INSTRUMENT} not tradeable right now (market closed?)"
+        status["tradeable"] = False
+        return status
+    status["tradeable"] = True
 
     has_position = broker.has_open_position(config.INSTRUMENT)
 
@@ -49,26 +54,36 @@ def run_once(broker: OandaBroker, risk: RiskManager) -> None:
         if _state["open_since"] is not None:
             held_minutes = (datetime.now(timezone.utc) - _state["open_since"]).total_seconds() / 60
             if held_minutes >= config.MAX_HOLD_MINUTES:
-                print(f"{config.INSTRUMENT}: max hold time reached ({held_minutes:.1f}m), closing.")
                 broker.close_position(config.INSTRUMENT)
                 _state["open_since"] = None
                 has_position = False
-        return  # bracket TP/SL already protects an open position
+                status["message"] = f"Closed {config.INSTRUMENT} after {held_minutes:.1f}m (max hold time)"
+        if has_position:
+            status["message"] = f"Holding open {config.INSTRUMENT} position"
+        status["has_position"] = has_position
+        status["equity"] = broker.get_equity()
+        return status
     else:
         _state["open_since"] = None
 
+    status["has_position"] = False
+
     if risk.daily_loss_limit_hit():
-        print("Daily loss limit hit — no new positions today.")
-        return
+        status["message"] = "Daily loss limit hit — no new positions today"
+        status["equity"] = broker.get_equity()
+        return status
 
     bars_1m = broker.get_recent_1m_bars(config.INSTRUMENT)
     if bars_1m.empty or len(bars_1m) < 60:
-        return
+        status["message"] = "Waiting for enough price history"
+        return status
 
     tf_data = build_multi_timeframe(bars_1m)
     signal = aligned_signal(tf_data, min_avg_volume=config.MIN_AVG_VOLUME, entry_signal_fn=_entry_signal_fn)
     if signal is None:
-        return
+        status["message"] = "No signal this check"
+        status["equity"] = broker.get_equity()
+        return status
 
     entry_price = float(bars_1m["close"].iloc[-1])
     take_profit, stop_loss = compute_exit_levels(
@@ -86,13 +101,18 @@ def run_once(broker: OandaBroker, risk: RiskManager) -> None:
     equity = broker.get_equity()
     qty = risk.position_size(equity, entry_price, stop_loss)
     if qty <= 0:
-        return
+        status["message"] = "Signal fired but position size rounded to 0"
+        status["equity"] = equity
+        return status
 
     units = qty if signal == "long" else -qty
     broker.submit_bracket_order(config.INSTRUMENT, units, take_profit, stop_loss)
     log_trade(config.INSTRUMENT, signal, qty, entry_price, take_profit, stop_loss)
     _state["open_since"] = datetime.now(timezone.utc)
-    print(f"Opened {signal} {qty}x{config.INSTRUMENT} @ {entry_price:.2f} (TP {take_profit:.2f} / SL {stop_loss:.2f})")
+    status["message"] = f"Opened {signal} {qty}x{config.INSTRUMENT} @ {entry_price:.2f} (TP {take_profit:.2f} / SL {stop_loss:.2f})"
+    status["equity"] = broker.get_equity()
+    status["has_position"] = True
+    return status
 
 
 def main() -> None:
@@ -107,9 +127,12 @@ def main() -> None:
 
     while True:
         try:
-            run_once(broker, risk)
+            status = run_once(broker, risk)
+            print(status.get("message", ""))
+            write_status(**status, error=None)
         except Exception as exc:  # keep the loop alive across transient API errors
             print(f"Error in loop: {exc}")
+            write_status(instrument=config.INSTRUMENT, entry_mode=config.ENTRY_MODE, error=str(exc))
         time.sleep(config.POLL_INTERVAL_SECONDS)
 
 

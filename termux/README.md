@@ -62,6 +62,35 @@ chmod +x ~/.termux/boot/start-gold-bot.sh
 ```
 Requires the Termux:Boot app to be installed and opened once.
 
+## Home-screen shortcuts + status dashboard
+
+Instead of typing commands each time, you can get a home-screen widget with
+one-tap buttons, plus a status page in your browser.
+
+**1. Status dashboard** — a simple page showing whether the bot is running,
+open positions, equity, and recent trades. Runs locally on the phone, no
+internet needed beyond what the bot already uses:
+```bash
+bash trading-bot/termux/run_dashboard.sh
+```
+Then open `http://127.0.0.1:8765` in your phone's browser and bookmark it.
+It auto-refreshes every 15 seconds.
+
+**2. Home-screen widget** — requires the Termux:Widget app (install from
+F-Droid, same collection as Termux:API/Termux:Boot). Copy the shortcut
+scripts into place:
+```bash
+mkdir -p ~/.shortcuts
+cp trading-bot/termux/shortcuts/*.sh ~/.shortcuts/
+chmod +x ~/.shortcuts/*.sh
+```
+Then, on your phone's home screen: long-press an empty area → Widgets →
+find "Termux:Widget" → drag it onto the home screen. It'll show three
+buttons: **Start Gold Bot**, **Stop Gold Bot**, **Gold Bot Status** — each
+one taps to run without opening Termux manually. "Start" launches the bot
+and dashboard together and opens the dashboard in your browser
+automatically.
+
 ## Keeping it up to date
 
 Since the code lives on GitHub, pull the latest version instead of re-cloning:
