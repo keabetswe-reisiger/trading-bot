@@ -34,8 +34,10 @@ def simulate_swing(
     max_hold_bars: int = 96,  # 96 * 5min = 8 hours
     entry_window: int = 60,
     trend_window: int = 30,
+    max_consecutive_losses: int = 0,
 ):
-    risk = RiskManager(starting_equity, risk_per_trade_pct, daily_loss_limit_pct, max_open_positions=1)
+    risk = RiskManager(starting_equity, risk_per_trade_pct, daily_loss_limit_pct, max_open_positions=1,
+                        max_consecutive_losses=max_consecutive_losses)
     equity = starting_equity
     trades = []
     equity_curve = []

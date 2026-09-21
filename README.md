@@ -320,6 +320,46 @@ only been tested on one week — it hasn't yet had the same out-of-sample
 check. Treat it as the best candidate found, one step more promising than
 anything before it, not as newly proven.
 
+**Position-size safety cap added.** `RiskManager.max_position_value_pct`
+(default 500% of equity) caps notional exposure independent of risk-based
+sizing — a backstop against a freak edge case (e.g. a near-zero ATR
+reading producing a tiny stop distance) sizing an unreasonably large
+position. Verified: an artificial near-zero-stop scenario that would have
+sized a ~$440M position was correctly capped to ~$497K.
+
+**Spread cost tested — the edge is thin enough to matter.** Backtests
+had assumed zero cost to enter/exit, which is unrealistic.
+`backtest/engine.py` now supports `spread_cost` (round-trip cost per unit).
+At a realistic OANDA gold spread ($0.30-0.50), avg R on the current best
+config drops from 0.30 to 0.11-0.19; at $1.00 it flips negative. Also
+observed: re-running the identical config on a freshly-fetched data window
+(same week later in the day) gave 37 trades/+3.39% instead of the earlier
+35 trades/+13.83% — the rolling 7-day window shifting as real time passes
+changes results substantially, a further reminder not to over-trust any
+single number here.
+
+**Two more ideas tested and rejected**, from further video breakdowns:
+Fair Value Gaps (`strategy/fair_value_gap.py` — unfilled 3-candle price
+imbalances) cut trades too aggressively (37 → 4-6) with no benefit, and the
+Fibonacci 0.886 retracement filter (`strategy/fibonacci.py`) was mildly
+positive alone (avg R +0.23) but made the combined result *worse* when
+stacked with candle confirmation (+0.30 → +0.22). Neither adopted.
+
+**Break-and-close continuation trigger — promising but small sample,
+not the default yet.** `strategy/breakout.py`: the mirror image of
+stop-hunt — price closes cleanly beyond a recent swing level instead of
+sweeping past it and reversing. Alone it was roughly breakeven (-0.4%),
+but combined with candle confirmation: **17 trades, 64.7% win rate,
++2.43%, avg R +0.48** — the highest avg R found in this project. Available
+as `GOLD_ENTRY_MODE=breakout`, but not adopted as default: only 17 trades
+is a much smaller sample than stop-hunt's validated 37-66 trade range, and
+this project has been burned before by trusting a strong small-sample
+result (the earlier "+10.6% swing" number that didn't hold up). Tested
+combining stop-hunt + breakout as parallel candle-confirmed signals — this
+made things *worse* (avg R +0.07), not better, suggesting the two triggers
+fire in different conditions and simple OR-combination dilutes rather than
+adds. Worth watching over time before considering a switch.
+
 ## Running it on your phone (Termux/Android)
 
 See [`termux/README.md`](termux/README.md) — runs `main_gold.py` directly on

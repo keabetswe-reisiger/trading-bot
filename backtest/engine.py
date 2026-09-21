@@ -62,6 +62,7 @@ def simulate(
     min_trend_agree: int = 3,
     min_confirm_agree: int = 1,
     max_consecutive_losses: int = 0,
+    spread_cost: float = 0.0,  # round-trip bid-ask cost per unit, deducted from each trade's pnl
 ) -> BacktestResult:
     risk = RiskManager(starting_equity, risk_per_trade_pct, daily_loss_limit_pct, max_open_positions=1,
                         max_consecutive_losses=max_consecutive_losses)
@@ -80,6 +81,7 @@ def simulate(
             if exit_price is not None:
                 direction = 1 if open_trade["side"] == "long" else -1
                 pnl = (exit_price - open_trade["entry_price"]) * open_trade["qty"] * direction
+                pnl -= open_trade["qty"] * spread_cost
                 equity += pnl
                 risk.record_closed_trade(pnl, at=t)
                 result.trades.append(
@@ -148,6 +150,7 @@ def simulate(
         exit_price = float(last_bar["close"])
         direction = 1 if open_trade["side"] == "long" else -1
         pnl = (exit_price - open_trade["entry_price"]) * open_trade["qty"] * direction
+        pnl -= open_trade["qty"] * spread_cost
         equity += pnl
         result.trades.append(
             {

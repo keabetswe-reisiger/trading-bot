@@ -23,6 +23,7 @@ from logs.trade_logger import log_trade
 from risk.risk_manager import RiskManager
 from strategy.exits import compute_exit_levels
 from strategy.gold_entry import pullback_signal
+from strategy.breakout import breakout_signal
 from strategy.candle_patterns import confirms_long, confirms_short
 from strategy.gold_price_action import divergence_signal, stophunt_signal
 from strategy.multi_timeframe import aligned_signal
@@ -35,6 +36,15 @@ _state = {"open_since": None}
 def _entry_signal_fn(bars):
     if config.ENTRY_MODE == "stophunt":
         signal = stophunt_signal(bars)
+        if not config.REQUIRE_CANDLE_CONFIRM:
+            return signal
+        if signal == "long" and confirms_long(bars):
+            return "long"
+        if signal == "short" and confirms_short(bars):
+            return "short"
+        return None
+    if config.ENTRY_MODE == "breakout":
+        signal = breakout_signal(bars)
         if not config.REQUIRE_CANDLE_CONFIRM:
             return signal
         if signal == "long" and confirms_long(bars):
@@ -151,6 +161,7 @@ def main() -> None:
         daily_loss_limit_pct=config.DAILY_LOSS_LIMIT_PCT,
         max_open_positions=config.MAX_OPEN_POSITIONS,
         max_consecutive_losses=config.MAX_CONSECUTIVE_LOSSES,
+        max_position_value_pct=config.MAX_POSITION_VALUE_PCT,
     )
     print(f"Starting gold scalp bot on {config.INSTRUMENT} (environment={config.OANDA_ENVIRONMENT})")
 

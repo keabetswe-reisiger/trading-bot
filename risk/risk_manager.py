@@ -21,6 +21,7 @@ class RiskManager:
     daily_loss_limit_pct: float
     max_open_positions: int
     max_consecutive_losses: int = 0  # 0 = disabled
+    max_position_value_pct: float = 500.0  # cap notional exposure as % of equity (500% ≈ 5x leverage); 0 = disabled
 
     trading_day: date | None = None
     realized_pnl_today: float = 0.0
@@ -62,10 +63,17 @@ class RiskManager:
         return current_open_positions < self.max_open_positions
 
     def position_size(self, equity: float, entry_price: float, stop_loss_price: float) -> int:
-        """Size the position so a hit stop only loses risk_per_trade_pct of equity."""
+        """Size the position so a hit stop only loses risk_per_trade_pct of equity,
+        capped so the position's notional value can't exceed max_position_value_pct
+        of equity — a backstop against a freak edge case (e.g. an unusually tiny
+        stop distance, from a near-zero ATR reading) sizing an unreasonably large
+        position that risk_per_trade_pct alone wouldn't catch."""
         risk_amount = equity * (self.risk_per_trade_pct / 100)
         per_share_risk = abs(entry_price - stop_loss_price)
-        if per_share_risk <= 0:
+        if per_share_risk <= 0 or entry_price <= 0:
             return 0
         qty = int(risk_amount / per_share_risk)
+        if self.max_position_value_pct:
+            max_notional = equity * (self.max_position_value_pct / 100)
+            qty = min(qty, int(max_notional / entry_price))
         return max(qty, 0)

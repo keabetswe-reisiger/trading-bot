@@ -23,7 +23,7 @@ import pandas as pd
 from strategy.scalp_strategy import compute_indicators
 
 
-def _confirmed_extrema(bars: pd.DataFrame, column: str, is_high: bool, order: int = 3, max_count: int = 2, min_gap: int | None = None):
+def confirmed_extrema(bars: pd.DataFrame, column: str, is_high: bool, order: int = 3, max_count: int = 2, min_gap: int | None = None):
     """Most recent confirmed swing points in `column`, newest first.
     Returns list of (positional_index, price) tuples.
 
@@ -60,8 +60,8 @@ def stophunt_signal(bars: pd.DataFrame, lookback: int = 40, swing_order: int = 3
     window = bars.tail(lookback)
     last = window.iloc[-1]
 
-    prior_highs = _confirmed_extrema(window.iloc[:-1], "high", is_high=True, order=swing_order, max_count=1)
-    prior_lows = _confirmed_extrema(window.iloc[:-1], "low", is_high=False, order=swing_order, max_count=1)
+    prior_highs = confirmed_extrema(window.iloc[:-1], "high", is_high=True, order=swing_order, max_count=1)
+    prior_lows = confirmed_extrema(window.iloc[:-1], "low", is_high=False, order=swing_order, max_count=1)
 
     if prior_highs:
         _, swing_high = prior_highs[0]
@@ -85,14 +85,14 @@ def divergence_signal(bars: pd.DataFrame, lookback: int = 60, swing_order: int =
     ind = compute_indicators(window, rsi_period=rsi_period)
     last = window.iloc[-1]
 
-    highs = _confirmed_extrema(window.iloc[:-1], "high", is_high=True, order=swing_order, max_count=2)
+    highs = confirmed_extrema(window.iloc[:-1], "high", is_high=True, order=swing_order, max_count=2)
     if len(highs) == 2:
         (i1, p1), (i2, p2) = highs  # i1/p1 = more recent, i2/p2 = prior
         rsi1, rsi2 = ind["rsi"].iloc[i1], ind["rsi"].iloc[i2]
         if p1 > p2 and rsi1 < rsi2 and last["close"] < last["open"]:
             return "short"
 
-    lows = _confirmed_extrema(window.iloc[:-1], "low", is_high=False, order=swing_order, max_count=2)
+    lows = confirmed_extrema(window.iloc[:-1], "low", is_high=False, order=swing_order, max_count=2)
     if len(lows) == 2:
         (i1, p1), (i2, p2) = lows
         rsi1, rsi2 = ind["rsi"].iloc[i1], ind["rsi"].iloc[i2]
