@@ -378,6 +378,28 @@ its confirmation stays narrow; breakout (already non-default) now uses the
 broader set. `confirms_long`/`confirms_short` = narrow (stop-hunt),
 `confirms_long_broad`/`confirms_short_broad` = broad (breakout).
 
+**Volume Spread Analysis "Stopping Volume" — best avg R found, but held
+back entirely, not even as a non-default option.** From Tom Williams'
+VSA methodology (`strategy/volume_confirmation.py`): a reversal is more
+credible when the trigger bar shows unusually high volume relative to
+recent bars — real participation, not a low-conviction wiggle. Notably,
+VSA's "Spring"/"Upthrust" patterns are conceptually identical to
+`stophunt_signal`, independent validation of that signal's core idea from
+an established, decades-old methodology unrelated to anything else tested
+here. Combined with stop-hunt + candle confirmation: **16 trades, 75% win
+rate, +2.45%, avg R +0.53, max drawdown 0.56%** — the best avg R in this
+project.
+
+**Not wired into `main_gold.py` at all, unlike breakout.** This result
+depends on real traded volume (Yahoo's futures data), but OANDA reports
+*tick volume* for gold (price-update count, not actual traded volume) —
+already the reason `MIN_AVG_VOLUME` is disabled by default. Whether tick
+volume behaves similarly enough for "Stopping Volume" to mean the same
+thing on live OANDA data is unknown, not just untested — a more serious
+gap than the usual small-sample caveat (16 trades is also small). Needs
+validation against OANDA's actual tick-volume data before it's a real
+candidate, live or backtested.
+
 ## Running it on your phone (Termux/Android)
 
 See [`termux/README.md`](termux/README.md) — runs `main_gold.py` directly on
