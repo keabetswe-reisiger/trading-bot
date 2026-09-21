@@ -241,6 +241,35 @@ order execution, risk controls), but there is currently no strong backtest
 evidence that it executes gold trades reliably profitably — real spread and
 slippage costs, not modeled here, would likely erode this thin an edge.
 
+**Update — stop-hunt held up on a fresh, later data window.** Re-tested
+against 2026-09-14 to 09-21 (a different week than the original test, so
+this is a real out-of-sample-ish check, not the same data re-run): **66
+trades, 45.5% win rate, +1.41% return, avg R +0.03**. Same direction (thin
+positive) and similar magnitude as the original +2.31% test — the first
+time in this project a signal has held up consistently across two different
+data windows, which is meaningfully more reassuring than any single
+backtest alone.
+
+**Frequency vs. quality tradeoff (tested, not just assumed)**: there was a
+request to trade closer to once per hour (stop-hunt currently fires about
+once every 2.5 hours). Tried an OR-ensemble of all four entry signals
+(`strategy/gold_price_action.py` + `strategy/gold_entry.py` +
+`strategy/scalp_strategy.py`) and mean-reversion with multi-timeframe
+confirmation added (`strategy/gold_meanrev.py`) at several confirmation
+strictness levels, specifically to push frequency up:
+
+| Approach | Frequency | Return |
+|---|---|---|
+| stop-hunt alone (current default) | ~1 trade / 2.5 hrs | **+1.41%** |
+| OR-ensemble, loose confirmation | ~1 trade / 1.75 hrs | -3.34% |
+| OR-ensemble, strict confirmation | ~1 trade / 25 hrs | -3.77% |
+| Mean-reversion + confirmation (any level) | ~1 trade / 2-9 hrs | -2.4% to -3.6% |
+
+Every way tried to increase frequency did it by accepting lower-quality
+setups, and every one erased the edge. Decision made: keep stop-hunt as-is
+rather than force hourly frequency — frequency and (thin, unproven-but-
+consistent) quality are in tension here, not independently tunable.
+
 ## Running it on your phone (Termux/Android)
 
 See [`termux/README.md`](termux/README.md) — runs `main_gold.py` directly on
