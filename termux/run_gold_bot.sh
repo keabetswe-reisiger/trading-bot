@@ -16,9 +16,22 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
   exit 0
 fi
 
+# Kill any stray main_gold.py not managed by tmux (e.g. left over from a
+# manual foreground test) — running two instances at once against the same
+# account is messy and wasteful even if not outright dangerous.
+proot-distro login debian -- pkill -f "python main_gold.py" 2>/dev/null || true
+sleep 1
+
 tmux new-session -d -s "$SESSION" \
   "proot-distro login debian -- bash -lc 'cd trading-bot && source venv/bin/activate && python main_gold.py'"
 
-echo "Started in tmux session '$SESSION'."
-echo "Attach to watch it:   tmux attach -t $SESSION"
-echo "Detach without killing it: press Ctrl-b then d"
+sleep 1
+if tmux has-session -t "$SESSION" 2>/dev/null; then
+  echo "Started in tmux session '$SESSION'."
+  echo "Attach to watch it:   tmux attach -t $SESSION"
+  echo "Detach without killing it: press Ctrl-b then d"
+else
+  echo "Bot failed to start. Run this to see the actual error:"
+  echo "  proot-distro login debian"
+  echo "  cd trading-bot && source venv/bin/activate && python main_gold.py"
+fi
