@@ -23,6 +23,7 @@ from logs.trade_logger import log_trade
 from risk.risk_manager import RiskManager
 from strategy.exits import compute_exit_levels
 from strategy.gold_entry import pullback_signal
+from strategy.candle_patterns import confirms_long, confirms_short
 from strategy.gold_price_action import divergence_signal, stophunt_signal
 from strategy.multi_timeframe import aligned_signal
 from strategy.scalp_strategy import generate_signal
@@ -33,12 +34,25 @@ _state = {"open_since": None}
 
 def _entry_signal_fn(bars):
     if config.ENTRY_MODE == "stophunt":
-        return stophunt_signal(bars)
+        signal = stophunt_signal(bars)
+        if not config.REQUIRE_CANDLE_CONFIRM:
+            return signal
+        if signal == "long" and confirms_long(bars):
+            return "long"
+        if signal == "short" and confirms_short(bars):
+            return "short"
+        return None
     if config.ENTRY_MODE == "divergence":
         return divergence_signal(bars)
     if config.ENTRY_MODE == "pullback":
         return pullback_signal(bars, restrict_session=config.RESTRICT_SESSION)
     return generate_signal(bars)
+
+
+def _record_last_trade_pnl(broker: OandaBroker, risk: RiskManager, at: datetime) -> None:
+    pnl = broker.get_last_closed_trade_pnl(config.INSTRUMENT)
+    if pnl is not None:
+        risk.record_closed_trade(pnl, at=at)
 
 
 def run_once(broker: OandaBroker, risk: RiskManager) -> dict:
@@ -51,12 +65,14 @@ def run_once(broker: OandaBroker, risk: RiskManager) -> dict:
     status["tradeable"] = True
 
     has_position = broker.has_open_position(config.INSTRUMENT)
+    now = datetime.now(timezone.utc)
 
     if has_position:
         if _state["open_since"] is not None:
-            held_minutes = (datetime.now(timezone.utc) - _state["open_since"]).total_seconds() / 60
+            held_minutes = (now - _state["open_since"]).total_seconds() / 60
             if held_minutes >= config.MAX_HOLD_MINUTES:
                 broker.close_position(config.INSTRUMENT)
+                _record_last_trade_pnl(broker, risk, now)
                 _state["open_since"] = None
                 has_position = False
                 status["message"] = f"Closed {config.INSTRUMENT} after {held_minutes:.1f}m (max hold time)"
@@ -66,6 +82,10 @@ def run_once(broker: OandaBroker, risk: RiskManager) -> dict:
         status["equity"] = broker.get_equity()
         return status
     else:
+        if _state["open_since"] is not None:
+            # We thought a position was open last check; it's gone now without
+            # us closing it, meaning the broker's TP/SL bracket order closed it.
+            _record_last_trade_pnl(broker, risk, now)
         _state["open_since"] = None
 
     status["has_position"] = False
@@ -76,7 +96,7 @@ def run_once(broker: OandaBroker, risk: RiskManager) -> dict:
         status["equity"] = broker.get_equity()
         return status
 
-    if risk.daily_loss_limit_hit():
+    if risk.daily_loss_limit_hit(at=now):
         status["message"] = "Daily loss limit hit — no new positions today"
         status["equity"] = broker.get_equity()
         return status
@@ -130,6 +150,7 @@ def main() -> None:
         risk_per_trade_pct=config.RISK_PER_TRADE_PCT,
         daily_loss_limit_pct=config.DAILY_LOSS_LIMIT_PCT,
         max_open_positions=config.MAX_OPEN_POSITIONS,
+        max_consecutive_losses=config.MAX_CONSECUTIVE_LOSSES,
     )
     print(f"Starting gold scalp bot on {config.INSTRUMENT} (environment={config.OANDA_ENVIRONMENT})")
 

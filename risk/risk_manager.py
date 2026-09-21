@@ -2,10 +2,16 @@
 
 Nothing here decides *what* to trade — that's the strategy's job. This only
 decides *how much* and *whether it's still allowed to trade today*.
+
+Day-rollover is driven by an explicit `at` timestamp passed by the caller,
+not the real wall-clock date — a backtest replays days far faster than real
+time, so relying on the system clock meant "today" never actually rolled
+over during a backtest, and a tripped daily limit stayed tripped for the
+rest of the run instead of resetting each simulated day.
 """
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 
 
 @dataclass
@@ -14,31 +20,44 @@ class RiskManager:
     risk_per_trade_pct: float
     daily_loss_limit_pct: float
     max_open_positions: int
+    max_consecutive_losses: int = 0  # 0 = disabled
 
-    trading_day: date = field(default_factory=date.today)
+    trading_day: date | None = None
     realized_pnl_today: float = 0.0
     day_trade_count_today: int = 0
+    consecutive_losses: int = 0
 
-    def _roll_day_if_needed(self) -> None:
-        today = date.today()
+    def _roll_day_if_needed(self, at: datetime) -> None:
+        today = at.date()
         if today != self.trading_day:
             self.trading_day = today
             self.realized_pnl_today = 0.0
             self.day_trade_count_today = 0
+            self.consecutive_losses = 0
 
-    def record_closed_trade(self, pnl: float) -> None:
-        self._roll_day_if_needed()
+    def record_closed_trade(self, pnl: float, at: datetime) -> None:
+        self._roll_day_if_needed(at)
         self.realized_pnl_today += pnl
         self.day_trade_count_today += 1
+        if pnl < 0:
+            self.consecutive_losses += 1
+        else:
+            self.consecutive_losses = 0
 
-    def daily_loss_limit_hit(self) -> bool:
-        self._roll_day_if_needed()
+    def daily_loss_limit_hit(self, at: datetime = None) -> bool:
+        at = at or datetime.now(timezone.utc)
+        self._roll_day_if_needed(at)
         limit = -abs(self.starting_equity * self.daily_loss_limit_pct / 100)
-        return self.realized_pnl_today <= limit
+        if self.realized_pnl_today <= limit:
+            return True
+        if self.max_consecutive_losses and self.consecutive_losses >= self.max_consecutive_losses:
+            return True
+        return False
 
-    def can_open_new_position(self, current_open_positions: int) -> bool:
-        self._roll_day_if_needed()
-        if self.daily_loss_limit_hit():
+    def can_open_new_position(self, current_open_positions: int, at: datetime = None) -> bool:
+        at = at or datetime.now(timezone.utc)
+        self._roll_day_if_needed(at)
+        if self.daily_loss_limit_hit(at):
             return False
         return current_open_positions < self.max_open_positions
 

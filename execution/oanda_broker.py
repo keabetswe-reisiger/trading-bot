@@ -13,6 +13,7 @@ import oandapyV20.endpoints.instruments as instruments
 import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.positions as positions
 import oandapyV20.endpoints.pricing as pricing
+import oandapyV20.endpoints.trades as trades
 import pandas as pd
 from oandapyV20.contrib.requests import MarketOrderRequest, StopLossDetails, TakeProfitDetails
 from oandapyV20.exceptions import V20Error
@@ -98,3 +99,14 @@ class OandaBroker:
         r = positions.PositionClose(self.account_id, instrument, data=data)
         self.client.request(r)
         return r.response
+
+    def get_last_closed_trade_pnl(self, instrument: str) -> float | None:
+        """Realized P&L of the most recently closed trade for this instrument,
+        or None if there isn't one. Used to feed the risk manager's daily
+        loss limit — otherwise it never learns whether a trade actually lost."""
+        r = trades.TradesList(self.account_id, params={"instrument": instrument, "state": "CLOSED", "count": 1})
+        self.client.request(r)
+        closed = r.response.get("trades", [])
+        if not closed:
+            return None
+        return float(closed[0]["realizedPL"])

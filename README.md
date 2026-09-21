@@ -270,6 +270,56 @@ setups, and every one erased the edge. Decision made: keep stop-hunt as-is
 rather than force hourly frequency — frequency and (thin, unproven-but-
 consistent) quality are in tension here, not independently tunable.
 
+**Important bug found and fixed — re-read backtest numbers above with this
+in mind.** `RiskManager` tracked "today" using the real wall-clock date, not
+the simulated bar timestamps. Backtests replay a week of trading in seconds
+of real time, so "today" never actually advanced during a run — once the
+daily loss limit tripped once, it silently stayed tripped for the *rest of
+the backtest*, incorrectly suppressing trading for days it shouldn't have.
+Fixed by making day-rollover explicit (`RiskManager` methods now take an
+`at` timestamp — the simulated bar time in backtests, real time live).
+Re-ran the affected tests after the fix: stop-hunt's baseline actually
+improved (66 trades → same count, but +5.3% instead of the earlier +3.22%
+figure quoted above), confirming the bug was making things look *worse*
+than they were, not better — so this wasn't a case of a bug inflating a
+result we then trusted. There's a second bug in the same area, not yet
+fixed: the live bots (`main.py`, `main_gold.py`) never called
+`record_closed_trade()` at all, meaning the live daily-loss-limit has never
+actually tracked realized P&L — it was decorative. **Now fixed for
+`main_gold.py`** (fetches the last closed trade's realized P&L from OANDA
+when a position disappears between polls) but **`main.py` — the stock bot —
+still has this gap**, unaddressed since gold has been the active focus.
+
+**Two new ideas from trading-education videos, tested and adopted — best
+result in this project so far.** From a breakdown of an auction-market-
+theory-based gold strategy video: gamma exposure (GEX) and real order-flow
+absorption require specialized options/tick data this project doesn't have
+access to, so those weren't implementable. Two things from it were:
+
+1. **"2 consecutive losses = stop for the day"** — a sound risk-discipline
+   rule independent of entry logic. Added to `RiskManager` as
+   `max_consecutive_losses`.
+2. **Candlestick confirmation** (engulfing candle / pin bar,
+   `strategy/candle_patterns.py`) required on the stop-hunt trigger bar —
+   standard, well-defined patterns (unlike "3-bar reversal" from a separate
+   candlestick video, which claimed a higher success rate with no backing
+   data shown, so wasn't implemented).
+
+Tested against real GC=F data (post-bug-fix numbers):
+
+| Configuration | Trades | Win% | Return | Avg R | Max DD |
+|---|---|---|---|---|---|
+| stop-hunt alone | 66 | 47.0% | +5.3% | 0.09 | 7.37% |
+| + candle confirmation | 44 | 59.1% | +13.49% | 0.30 | 4.56% |
+| + candle confirmation + 2-loss breaker | 35 | **62.9%** | **+13.83%** | **0.38** | **3.77%** |
+
+This is now the default (`GOLD_REQUIRE_CANDLE_CONFIRM=true`,
+`GOLD_MAX_CONSECUTIVE_LOSSES=2`). **Important caveat**: unlike bare
+stop-hunt (validated on two separate weeks), this specific combination has
+only been tested on one week — it hasn't yet had the same out-of-sample
+check. Treat it as the best candidate found, one step more promising than
+anything before it, not as newly proven.
+
 ## Running it on your phone (Termux/Android)
 
 See [`termux/README.md`](termux/README.md) — runs `main_gold.py` directly on

@@ -16,12 +16,18 @@ INSTRUMENT = os.getenv("GOLD_INSTRUMENT", "XAU_USD")
 RISK_PER_TRADE_PCT = float(os.getenv("GOLD_RISK_PER_TRADE_PCT", "1.0"))
 DAILY_LOSS_LIMIT_PCT = float(os.getenv("GOLD_DAILY_LOSS_LIMIT_PCT", "3.0"))
 MAX_OPEN_POSITIONS = int(os.getenv("GOLD_MAX_OPEN_POSITIONS", "1"))
+# 0 = disabled. Stop trading for the day after this many losses in a row.
+MAX_CONSECUTIVE_LOSSES = int(os.getenv("GOLD_MAX_CONSECUTIVE_LOSSES", "2"))
 # OANDA reports tick volume (price updates), not real traded volume, for FX/metals.
 # Left at 0 (disabled) by default until you've observed a sane baseline for XAU_USD.
 MIN_AVG_VOLUME = int(os.getenv("GOLD_MIN_AVG_VOLUME", "0"))
 
 ENTRY_MODE = os.getenv("GOLD_ENTRY_MODE", "stophunt")  # "stophunt", "pullback", "divergence", or "crossover"
 RESTRICT_SESSION = os.getenv("GOLD_RESTRICT_SESSION", "true").strip().lower() in ("1", "true", "yes")
+# Only applies when ENTRY_MODE=stophunt. Requires an engulfing candle or pin
+# bar on the trigger bar too — best-tested combination so far (+13.8% vs
+# +5.3% without it on the same week), but only validated on one data window.
+REQUIRE_CANDLE_CONFIRM = os.getenv("GOLD_REQUIRE_CANDLE_CONFIRM", "true").strip().lower() in ("1", "true", "yes")
 
 STOP_MODE = os.getenv("GOLD_STOP_MODE", "atr")
 TAKE_PROFIT_PCT = float(os.getenv("GOLD_TAKE_PROFIT_PCT", "0.3"))

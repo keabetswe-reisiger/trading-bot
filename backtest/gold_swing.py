@@ -67,7 +67,7 @@ def simulate_swing(
                 direction = 1 if open_trade["side"] == "long" else -1
                 pnl = (exit_price - open_trade["entry_price"]) * open_trade["qty"] * direction
                 equity += pnl
-                risk.record_closed_trade(pnl)
+                risk.record_closed_trade(pnl, at=t)
                 trades.append(
                     {
                         "side": open_trade["side"],
@@ -81,7 +81,7 @@ def simulate_swing(
                 open_trade = None
             continue
 
-        if risk.daily_loss_limit_hit():
+        if risk.daily_loss_limit_hit(at=t):
             continue
 
         bars_by_tf = {ENTRY_TIMEFRAME: bars_5m.loc[:t].tail(entry_window)}

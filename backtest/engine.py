@@ -61,8 +61,10 @@ def simulate(
     entry_signal_fn=None,
     min_trend_agree: int = 3,
     min_confirm_agree: int = 1,
+    max_consecutive_losses: int = 0,
 ) -> BacktestResult:
-    risk = RiskManager(starting_equity, risk_per_trade_pct, daily_loss_limit_pct, max_open_positions=1)
+    risk = RiskManager(starting_equity, risk_per_trade_pct, daily_loss_limit_pct, max_open_positions=1,
+                        max_consecutive_losses=max_consecutive_losses)
     equity = starting_equity
     result = BacktestResult(symbol=symbol)
     open_trade = None
@@ -79,7 +81,7 @@ def simulate(
                 direction = 1 if open_trade["side"] == "long" else -1
                 pnl = (exit_price - open_trade["entry_price"]) * open_trade["qty"] * direction
                 equity += pnl
-                risk.record_closed_trade(pnl)
+                risk.record_closed_trade(pnl, at=t)
                 result.trades.append(
                     {
                         "symbol": symbol,
@@ -97,7 +99,7 @@ def simulate(
                 open_trade = None
             continue
 
-        if risk.daily_loss_limit_hit():
+        if risk.daily_loss_limit_hit(at=t):
             continue
 
         window_1m = bars_1m.loc[:t].tail(entry_window)
