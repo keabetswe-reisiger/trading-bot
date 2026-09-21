@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 import config_gold as config
 from execution.oanda_broker import OandaBroker
+from logs.activity_log import log_activity
 from logs.pause_flag import is_paused
 from logs.status_writer import write_status
 from logs.trade_logger import log_trade
@@ -137,9 +138,11 @@ def main() -> None:
             status = run_once(broker, risk)
             print(status.get("message", ""))
             write_status(**status, error=None)
+            log_activity(status.get("message", ""))
         except Exception as exc:  # keep the loop alive across transient API errors
             print(f"Error in loop: {exc}")
             write_status(instrument=config.INSTRUMENT, entry_mode=config.ENTRY_MODE, error=str(exc))
+            log_activity(f"Error: {exc}")
         time.sleep(config.POLL_INTERVAL_SECONDS)
 
 

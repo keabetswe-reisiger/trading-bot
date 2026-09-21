@@ -10,6 +10,7 @@ import json
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from logs.activity_log import recent_activity
 from logs.pause_flag import is_paused, pause, resume
 
 STATUS_PATH = os.path.join(os.path.dirname(__file__), "logs", "status.json")
@@ -57,6 +58,10 @@ def _render_html() -> str:
         for t in trades
     ) or '<tr><td colspan="7" style="opacity:0.6">No trades yet</td></tr>'
 
+    activity_rows = "".join(
+        f"<tr><td>{a['time_utc']}</td><td>{a['message']}</td></tr>" for a in recent_activity(20)
+    ) or '<tr><td colspan="2" style="opacity:0.6">No activity logged yet</td></tr>'
+
     equity = status.get("equity")
     equity_html = f"${equity:,.2f}" if isinstance(equity, (int, float)) else "—"
     position_html = "Yes" if status.get("has_position") else "No"
@@ -100,6 +105,10 @@ def _render_html() -> str:
 <h2>Recent trades</h2>
 <table><tr><th>Time (UTC)</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>TP</th><th>SL</th></tr>
 {rows}
+</table>
+<h2>Recent activity <span style="opacity:0.5;font-weight:normal;font-size:0.7em">(every check, not just trades)</span></h2>
+<table><tr><th>Time (UTC)</th><th>What happened</th></tr>
+{activity_rows}
 </table>
 <div class="footer">Auto-refreshes every 15s. This is a demo/practice account — see the repo README for validated strategy status before trusting these numbers.</div>
 </body></html>"""

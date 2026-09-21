@@ -5,3 +5,4 @@ __pycache__/
 logs/trades.csv
 logs/status.json
 logs/pause.flag
+logs/activity.jsonl
