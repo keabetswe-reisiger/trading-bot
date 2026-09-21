@@ -360,6 +360,24 @@ made things *worse* (avg R +0.07), not better, suggesting the two triggers
 fire in different conditions and simple OR-combination dilutes rather than
 adds. Worth watching over time before considering a switch.
 
+**More candlestick patterns added, but split by entry mode — broadening
+confirmation helps one signal and hurts the other.** From a standard
+candlestick-pattern reference: Dragonfly/Gravestone Doji, Harami, and
+Tweezers Top/Bottom (`strategy/candle_patterns.py`) — same category as the
+existing engulfing/pin-bar, all textbook-defined, unambiguous. Testing the
+broader set against both current signals:
+
+| Signal | Narrow confirm (engulfing+pin bar) | Broad confirm (+doji/harami/tweezers) |
+|---|---|---|
+| stop-hunt | 37 trades, +3.39%, avg R 0.30 | 27 trades, +0.49%, avg R **0.03** |
+| breakout | 17 trades, +2.43%, avg R 0.48 | 21 trades, +3.41%, avg R **0.48** (same, more trades) |
+
+Broadening confirmation diluted stop-hunt badly but helped breakout (same
+quality, larger sample). Since stop-hunt is the validated live default,
+its confirmation stays narrow; breakout (already non-default) now uses the
+broader set. `confirms_long`/`confirms_short` = narrow (stop-hunt),
+`confirms_long_broad`/`confirms_short_broad` = broad (breakout).
+
 ## Running it on your phone (Termux/Android)
 
 See [`termux/README.md`](termux/README.md) — runs `main_gold.py` directly on

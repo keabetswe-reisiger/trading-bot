@@ -24,7 +24,7 @@ from risk.risk_manager import RiskManager
 from strategy.exits import compute_exit_levels
 from strategy.gold_entry import pullback_signal
 from strategy.breakout import breakout_signal
-from strategy.candle_patterns import confirms_long, confirms_short
+from strategy.candle_patterns import confirms_long, confirms_short, confirms_long_broad, confirms_short_broad
 from strategy.gold_price_action import divergence_signal, stophunt_signal
 from strategy.multi_timeframe import aligned_signal
 from strategy.scalp_strategy import generate_signal
@@ -47,9 +47,9 @@ def _entry_signal_fn(bars):
         signal = breakout_signal(bars)
         if not config.REQUIRE_CANDLE_CONFIRM:
             return signal
-        if signal == "long" and confirms_long(bars):
+        if signal == "long" and confirms_long_broad(bars):
             return "long"
-        if signal == "short" and confirms_short(bars):
+        if signal == "short" and confirms_short_broad(bars):
             return "short"
         return None
     if config.ENTRY_MODE == "divergence":
