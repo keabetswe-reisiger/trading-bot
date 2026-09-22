@@ -34,6 +34,18 @@ class OandaBroker:
         prices = r.response.get("prices", [])
         return bool(prices) and prices[0].get("status") == "tradeable"
 
+    def get_current_spread(self, instrument: str) -> float | None:
+        """Current bid/ask spread in price units, or None if unavailable."""
+        r = pricing.PricingInfo(self.account_id, params={"instruments": instrument})
+        self.client.request(r)
+        prices = r.response.get("prices", [])
+        if not prices:
+            return None
+        bid, ask = prices[0].get("closeoutBid"), prices[0].get("closeoutAsk")
+        if bid is None or ask is None:
+            return None
+        return float(ask) - float(bid)
+
     def get_equity(self) -> float:
         r = accounts.AccountSummary(self.account_id)
         self.client.request(r)

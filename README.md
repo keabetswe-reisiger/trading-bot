@@ -400,6 +400,107 @@ gap than the usual small-sample caveat (16 trades is also small). Needs
 validation against OANDA's actual tick-volume data before it's a real
 candidate, live or backtested.
 
+**"No Demand" / "No Supply" from the same VSA book — tested, rejected.**
+`strategy/vsa_bars.py` codifies two more concepts from Tom Williams'
+*Master the Markets*, distinct from Stopping Volume above: a bar that looks
+directionally fine on price alone but whose volume gives it away. **No
+Demand** — an up-bar, narrow spread, volume below the previous two bars' —
+is a bearish tell despite the up close. **No Supply** — a down-bar, narrow
+spread, volume below the previous two bars', closing in the middle/high of
+its range — is a bullish tell despite the down close. Tested two ways
+against the same `GC=F` data used throughout this project:
+
+| Approach | Trades | Win% | Return% | Avg R |
+|---|---|---|---|---|
+| stop-hunt + candle confirm (live default, baseline) | 37 | 59.5% | +3.39% | 0.30 |
+| No Demand/No Supply as standalone contrarian entries | 25 | 28.0% | -1.50% | -0.21 |
+| stop-hunt + candle confirm, with a No Demand/No Supply veto | 30 | 53.3% | +1.30% | 0.16 |
+
+Standalone, it loses money — confirmed robust across narrow-spread lookback
+windows of 5/10/20 bars, all negative (avg R -0.24 to -0.18), so this isn't
+a lookback-tuning artifact. Layered as a veto on the validated live default
+(skip a stop-hunt long if a No Demand bar just printed, skip a short if a
+No Supply bar just printed), it filtered out 7 of 37 trades but return and
+avg R both dropped — the veto removed winners along with losers, net
+negative, the same "a plausible-sounding filter with no measured benefit"
+outcome as the DXY filter and Fibonacci-stacking tests above. Not adopted
+either way. Code kept in the repo (untested ideas from the same source
+sometimes combine differently later), not wired into `main_gold.py`.
+
+**"Quality" mode — stacking the three best-proven building blocks, best
+spread-cost survival found so far.** Every idea tested in this project so
+far was tried as a *replacement* for the live default. This one instead
+*combines* three independently-validated pieces: the structural trigger
+(stop-hunt or breakout), each with its own already-validated candle
+confirmation, gated further by VSA "Stopping Volume"
+(`strategy/volume_confirmation.py`) — the trigger bar must also show real
+elevated volume, not just a price wiggle. README already noted stop-hunt +
+candle + volume alone found the best avg R in the project (+0.53) as a
+side observation, but it was never actually built or swept properly until
+now. Swept the volume multiplier (1.3/1.5/2.0) against fresh `GC=F` data:
+
+| Config | Trades | Win% | Return% | Avg R | Max DD% |
+|---|---|---|---|---|---|
+| stop-hunt+confirm (live default, baseline) | 37 | 59.5% | +3.39% | 0.30 | 1.34% |
+| breakout+confirm (baseline) | 21 | 61.9% | +3.41% | 0.48 | 1.06% |
+| stop-hunt+confirm+volume (x1.5) | 16 | 75.0% | +2.45% | 0.53 | 0.56% |
+| breakout+confirm+volume (x1.5) | 9 | 66.7% | +0.89% | 0.29 | 0.81% |
+| **either signal, both quality-gated (x1.5)** | **23** | **73.9%** | **+3.13%** | **0.44** | **0.56%** |
+
+Higher volume multipliers push win rate and avg R up further (x2.0:
+stop-hunt+volume alone hit 81.8% win, avg R 0.74) but on ever-smaller trade
+counts (11 trades) — a real quality/quantity tradeoff, not noise, since it's
+monotonic across all three multipliers tested. Picked x1.5 "either" as the
+best-balanced config: more trades than any single quality-gated leg (23 vs
+16 or 9), so a somewhat larger sample, while keeping win rate and avg R well
+above the live default.
+
+**Spread-cost tested, and this is where it earned adoption as an option**:
+at a realistic $0.40 OANDA spread, it beats stop-hunt+confirm on every
+metric — 60.0% win vs 54.1%, +1.88% vs +1.68%, avg R 0.31 vs 0.15 (roughly
+double). At $1.00 spread both go negative, but the quality-gated version
+degrades less (avg R -0.17 vs -0.24).
+
+Added as `GOLD_ENTRY_MODE=quality` (`main_gold.py:_quality_signal`,
+`GOLD_QUALITY_VOLUME_MULTIPLIER` in `.env.example`, default 1.5) — **not the
+new default**. Same unresolved gap as Stopping Volume always had: OANDA
+reports tick volume for gold, not real traded volume, and this has only
+been validated against Yahoo's real-volume `GC=F` data, never against
+OANDA's actual tick volume. Available to run on the practice account
+alongside `stophunt` to see how it behaves live before considering a
+default change.
+
+**Pre-trade spread guard — added.** Nothing previously checked the live
+bid/ask spread before submitting an order; on a scalp with a tight
+ATR-based stop, a spread spike (news, thin liquidity) could eat a large
+chunk of the risk budget before the trade even started. `OandaBroker.
+get_current_spread()` now reads the current `closeoutBid`/`closeoutAsk`,
+and `run_once()` skips a fired signal if the spread exceeds `GOLD_MAX_SPREAD`
+(default $0.50 — between this project's own "$0.40 = typical" and "$1.00 =
+wide, kills the edge" spread-cost test bracket). **Not backtestable** — no
+historical bid/ask data exists for `GC=F` anywhere in this project — so
+this is a live/paper-only safety net, verified only by a stub test (forced
+signal, wide vs. narrow mocked spread, confirms the order is/isn't
+submitted), not by a trade-metrics table like everything else here.
+
+**Session restriction for stop-hunt — tested, explicitly rejected.**
+`GOLD_RESTRICT_SESSION=true` only ever applied to `pullback` mode; `stophunt`
+(the live default) has always ignored it, which looked like an obvious bug.
+It isn't one. Backtested applying the same London/NY-only gate
+(`strategy/gold_entry.in_active_session`) to `stophunt+confirm` against the
+same fresh `GC=F` window:
+
+| Config | Trades | Win% | Return% | Avg R | Max DD% |
+|---|---|---|---|---|---|
+| session-restricted (London/NY only) | 18 | 38.9% | -0.4% | -0.05 | 1.88% |
+| unrestricted (current live behavior) | 29 | 55.2% | +2.3% | 0.24 | 1.34% |
+
+Restricting the session makes every metric worse. Plausible reason: a
+stop-hunt is a liquidity-sweep pattern, and thinner overnight liquidity may
+be exactly what makes resting stops easier to sweep — the opposite of what
+a lagging crossover trigger (`pullback`) needs from a quiet session. Not
+applied to `stophunt`; `GOLD_RESTRICT_SESSION` still only gates `pullback`.
+
 ## Running it on your phone (Termux/Android)
 
 See [`termux/README.md`](termux/README.md) — runs `main_gold.py` directly on

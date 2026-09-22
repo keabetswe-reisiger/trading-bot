@@ -25,12 +25,23 @@ MAX_POSITION_VALUE_PCT = float(os.getenv("GOLD_MAX_POSITION_VALUE_PCT", "500"))
 # Left at 0 (disabled) by default until you've observed a sane baseline for XAU_USD.
 MIN_AVG_VOLUME = int(os.getenv("GOLD_MIN_AVG_VOLUME", "0"))
 
-ENTRY_MODE = os.getenv("GOLD_ENTRY_MODE", "stophunt")  # "stophunt" (default), "breakout", "pullback", "divergence", or "crossover"
+ENTRY_MODE = os.getenv("GOLD_ENTRY_MODE", "stophunt")  # "stophunt" (default), "breakout", "quality", "pullback", "divergence", or "crossover"
+# Only applies when ENTRY_MODE=quality: how many times the recent average
+# volume the trigger bar's volume must reach (VSA "Stopping Volume"). Higher
+# = fewer, higher-conviction trades (backtested 1.3-2.0; 1.5 is the
+# best-balanced point - see strategy.volume_confirmation.has_stopping_volume).
+QUALITY_VOLUME_MULTIPLIER = float(os.getenv("GOLD_QUALITY_VOLUME_MULTIPLIER", "1.5"))
 RESTRICT_SESSION = os.getenv("GOLD_RESTRICT_SESSION", "true").strip().lower() in ("1", "true", "yes")
 # Only applies when ENTRY_MODE=stophunt. Requires an engulfing candle or pin
 # bar on the trigger bar too — best-tested combination so far (+13.8% vs
 # +5.3% without it on the same week), but only validated on one data window.
 REQUIRE_CANDLE_CONFIRM = os.getenv("GOLD_REQUIRE_CANDLE_CONFIRM", "true").strip().lower() in ("1", "true", "yes")
+
+# Live safety guard only — not backtestable (Yahoo's GC=F data has no real
+# bid/ask history). $0.50 sits between README's own "$0.40 = typical" and
+# "$1.00 = wide, kills the edge" spread-cost test bracket. Checked once a
+# signal fires, before the order is submitted.
+MAX_SPREAD = float(os.getenv("GOLD_MAX_SPREAD", "0.50"))
 
 STOP_MODE = os.getenv("GOLD_STOP_MODE", "atr")
 TAKE_PROFIT_PCT = float(os.getenv("GOLD_TAKE_PROFIT_PCT", "0.3"))
