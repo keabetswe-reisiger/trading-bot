@@ -18,15 +18,17 @@ import pandas as pd
 from oandapyV20.contrib.requests import MarketOrderRequest, StopLossDetails, TakeProfitDetails
 from oandapyV20.exceptions import V20Error
 
-import config_gold as config
-
 MAX_CANDLES_PER_REQUEST = 5000  # OANDA's hard limit per call
 
 
 class OandaBroker:
-    def __init__(self) -> None:
-        self.client = oandapyV20.API(access_token=config.OANDA_API_TOKEN, environment=config.OANDA_ENVIRONMENT)
-        self.account_id = config.OANDA_ACCOUNT_ID
+    def __init__(self, api_token: str, account_id: str, environment: str = "practice") -> None:
+        """Takes credentials explicitly (not read from a specific config
+        module) so multiple bots can each use their own separate OANDA
+        account — e.g. main_gold.py (1-minute, config_gold) and
+        main_gold_position.py (daily, config_position) never share state."""
+        self.client = oandapyV20.API(access_token=api_token, environment=environment)
+        self.account_id = account_id
 
     def is_tradeable(self, instrument: str) -> bool:
         r = pricing.PricingInfo(self.account_id, params={"instruments": instrument})
@@ -84,6 +86,33 @@ class OandaBroker:
             }
             for c in r.response["candles"]
             if c["complete"]  # drop the still-forming current candle
+        ]
+        if not rows:
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+        df = pd.DataFrame(rows)
+        df["time"] = pd.to_datetime(df["time"], utc=True)
+        return df.set_index("time")[["open", "high", "low", "close", "volume"]]
+
+    def get_recent_daily_bars(self, instrument: str, count: int = 1500) -> pd.DataFrame:
+        """~6 years of daily candles by default — enough for weekly/monthly
+        trend confirmation to warm up (a 21-period monthly EMA alone needs
+        22+ months) with real margin, while staying well under OANDA's
+        5000-candle per-request cap."""
+        r = instruments.InstrumentsCandles(
+            instrument, params={"granularity": "D", "count": min(count, MAX_CANDLES_PER_REQUEST), "price": "M"}
+        )
+        self.client.request(r)
+        rows = [
+            {
+                "time": c["time"],
+                "open": float(c["mid"]["o"]),
+                "high": float(c["mid"]["h"]),
+                "low": float(c["mid"]["l"]),
+                "close": float(c["mid"]["c"]),
+                "volume": int(c["volume"]),
+            }
+            for c in r.response["candles"]
+            if c["complete"]
         ]
         if not rows:
             return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])

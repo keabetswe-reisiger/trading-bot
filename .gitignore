@@ -6,3 +6,6 @@ logs/trades.csv
 logs/status.json
 logs/pause.flag
 logs/activity.jsonl
+logs/position_state.json
+logs/position_status.json
+logs/position_activity.jsonl

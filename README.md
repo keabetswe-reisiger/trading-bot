@@ -661,10 +661,33 @@ badly dented the edge.
 genuine, independent, multi-year, multi-regime out-of-sample testing, and
 it passed. `divergence, 2.5x ATR / 2:1 RR / 20d hold` is the most
 conservative pick (smallest train→test drop-off: 0.39→0.32, highest win
-rate, lowest drawdown). No live implementation exists yet — this would be
-new work (`main_gold.py` only knows how to poll every 30 seconds for
-1-minute OANDA candles; a daily-cadence equivalent, probably checking once
-near each day's rollover, would need to be built from scratch).
+rate, lowest drawdown) and is the default in `config_position.py`.
+
+**Live implementation — built.** `main_gold_position.py` runs it: checks
+every 6 hours (not continuously — a daily strategy has nothing new to see
+between one day's close and the next), on its own **separate OANDA
+practice account** (`OANDA_POSITION_API_TOKEN`/`OANDA_POSITION_ACCOUNT_ID`
+in `.env`) so it never fights the 1-minute bot over the same `XAU_USD`
+position slot. Two things done differently from `main_gold.py`/`main.py`
+on purpose:
+- **Open-trade state is persisted to disk** (`logs/position_state.py`),
+  not kept in memory only — a 10-40 day hold is far more likely to outlive
+  a phone restart than a 10-minute scalp is.
+- **Its own status/activity log files** (`logs/position_status.json`,
+  `logs/position_activity.jsonl`, via new optional `path=` parameters on
+  `status_writer.write_status`/`activity_log.log_activity`) so it doesn't
+  collide with the 1-minute bot's `logs/status.json`/`activity.jsonl`.
+
+Verified against the real second OANDA practice account (not just stubs):
+`get_equity()`, `is_tradeable()`, `get_current_spread()`, and
+`get_recent_daily_bars()` all confirmed working. Real-money-relevant
+observation from that live check: current gold price (~$4,300) is more
+than double every level used in this project's backtests (~$2,000), and
+the live spread observed was $1.61 — wider than the "$1.00 = wide" spread
+test used throughout this project. Not yet re-validated whether the
+spread-robustness findings above hold in relative terms at this much
+higher price level; worth revisiting before fully trusting the
+spread-immunity claim going forward.
 
 ## Running it on your phone (Termux/Android)
 

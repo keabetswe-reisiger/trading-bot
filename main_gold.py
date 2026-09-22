@@ -187,7 +187,7 @@ def run_once(broker: OandaBroker, risk: RiskManager) -> dict:
 
 
 def main() -> None:
-    broker = OandaBroker()
+    broker = OandaBroker(config.OANDA_API_TOKEN, config.OANDA_ACCOUNT_ID, config.OANDA_ENVIRONMENT)
     risk = RiskManager(
         starting_equity=broker.get_equity(),
         risk_per_trade_pct=config.RISK_PER_TRADE_PCT,
