@@ -35,6 +35,9 @@ def simulate_swing(
     entry_window: int = 60,
     trend_window: int = 30,
     max_consecutive_losses: int = 0,
+    entry_signal_fn=None,
+    min_trend_agree: int = 3,
+    spread_cost: float = 0.0,  # round-trip bid-ask cost per unit, deducted from each trade's pnl
 ):
     risk = RiskManager(starting_equity, risk_per_trade_pct, daily_loss_limit_pct, max_open_positions=1,
                         max_consecutive_losses=max_consecutive_losses)
@@ -68,6 +71,7 @@ def simulate_swing(
             if exit_price is not None:
                 direction = 1 if open_trade["side"] == "long" else -1
                 pnl = (exit_price - open_trade["entry_price"]) * open_trade["qty"] * direction
+                pnl -= open_trade["qty"] * spread_cost
                 equity += pnl
                 risk.record_closed_trade(pnl, at=t)
                 trades.append(
@@ -90,7 +94,10 @@ def simulate_swing(
         for tf in TREND_TIMEFRAMES:
             bars_by_tf[tf] = tf_data[tf].loc[:t].tail(trend_window)
 
-        signal = aligned_signal(bars_by_tf)
+        kwargs = {"min_trend_agree": min_trend_agree}
+        if entry_signal_fn is not None:
+            kwargs["entry_signal_fn"] = entry_signal_fn
+        signal = aligned_signal(bars_by_tf, **kwargs)
         if signal is None:
             continue
 
@@ -127,6 +134,7 @@ def simulate_swing(
         exit_price = float(last_bar["close"])
         direction = 1 if open_trade["side"] == "long" else -1
         pnl = (exit_price - open_trade["entry_price"]) * open_trade["qty"] * direction
+        pnl -= open_trade["qty"] * spread_cost
         equity += pnl
         trades.append(
             {

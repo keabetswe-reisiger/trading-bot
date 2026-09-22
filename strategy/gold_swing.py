@@ -63,8 +63,17 @@ def trend_bias(bars: pd.DataFrame, fast: int = 9, slow: int = 21) -> str | None:
     return None
 
 
-def aligned_signal(bars_by_tf: dict[str, pd.DataFrame], min_trend_agree: int = 3) -> str | None:
-    signal = entry_signal(bars_by_tf.get(ENTRY_TIMEFRAME, pd.DataFrame()))
+def aligned_signal(
+    bars_by_tf: dict[str, pd.DataFrame],
+    min_trend_agree: int = 3,
+    entry_signal_fn=entry_signal,
+) -> str | None:
+    """entry_signal_fn: bars -> "long"/"short"/None. Defaults to this module's
+    own EMA-crossover trigger; pass a different one (e.g.
+    strategy.gold_price_action.stophunt_signal) to swap the entry logic
+    while keeping the same trend-confirmation voting below — same pattern
+    as strategy.multi_timeframe.aligned_signal for the 1-minute strategies."""
+    signal = entry_signal_fn(bars_by_tf.get(ENTRY_TIMEFRAME, pd.DataFrame()))
     if signal is None:
         return None
     votes = [trend_bias(bars_by_tf[tf]) for tf in TREND_TIMEFRAMES if tf in bars_by_tf]

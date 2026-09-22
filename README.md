@@ -501,6 +501,96 @@ be exactly what makes resting stops easier to sweep — the opposite of what
 a lagging crossover trigger (`pullback`) needs from a quiet session. Not
 applied to `stophunt`; `GOLD_RESTRICT_SESSION` still only gates `pullback`.
 
+**Day-trading (hours-long hold) swing strategy — re-tested with a real
+sample, confirmed not a viable alternative to scalping.** `strategy/
+gold_swing.py` + `backtest/gold_swing.py` (EMA(9/21) crossover on 5-minute
+bars, confirmed by 3-of-4 higher timeframes, ATR stops, up to 8h hold) were
+built earlier and only ever validated on a small, unrecorded sample. Unlike
+every 1-minute strategy in this project — capped at ~7-8 days of history by
+Yahoo's 1-minute data limit — 5-minute bars are available back 60 days,
+giving this a real 117-162 trade sample per config, the largest in this
+project by far:
+
+| ATR× | R:R | Hold | Trades | Win% | Return% | Avg R | Max DD% |
+|---|---|---|---|---|---|---|---|
+| 1.5 | 2.0 | 4h | 162 | 33.3% | +3.12% | -0.02 | 12.8% |
+| 1.5 | 2.0 | 8h | 161 | 32.9% | +5.44% | -0.01 | 12.8% |
+| 1.5 | 3.0 | 4h | 161 | 26.1% | -0.51% | -0.05 | 14.1% |
+| 1.5 | 3.0 | 8h | 157 | 23.6% | -0.10% | -0.06 | 12.8% |
+| 2.5 | 2.0 | 4h | 140 | 33.6% | -14.53% | -0.13 | 22.6% |
+| 2.5 | 2.0 | 8h | 124 | 35.5% | +3.42% | +0.02 | 13.7% |
+| 2.5 | 3.0 | 4h | 140 | 30.7% | -17.25% | -0.16 | 21.8% |
+| 2.5 | 3.0 | 8h | 117 | 29.1% | -5.68% | -0.07 | 11.1% |
+
+Win rate is stuck at 23-36% across every configuration (a trend-following
+signature — many small losses, occasional bigger wins), but avg R is
+negative in 6 of 8 configs, and the 2 "positive" ones are essentially zero
+(+0.02, -0.01). The best-looking config by return (1.5×/2:1/8h, +5.44%) has
+avg R -0.01 — noise landing slightly positive in dollars this window, not a
+real edge. Drawdowns (11-23%) are far worse than anything on the scalping
+side (0.56-1.88%), and get worse, not better, at wider stops. **Confirms
+this specific entry (EMA crossover) doesn't have an edge on gold at this
+timeframe** — larger sample size resolved the ambiguity the original small
+test left open. Not adopted; no live version was ever built, and none is
+planned unless a different entry signal is tried at this timeframe (e.g.
+adapting stop-hunt/breakout logic to 5m/1h bars would be new work, not a
+re-run of this).
+
+**Adapting stop-hunt/breakout to the swing timeframe — the first
+spread-robust edge found anywhere in this project, but not validated yet.**
+The crossover swing entry above had no edge; stop-hunt/breakout (validated
+on 1-minute data) hadn't been tried at 5-minute/hours-hold. Made
+`strategy.gold_swing.aligned_signal` and `backtest.gold_swing.simulate_swing`
+accept a swappable `entry_signal_fn` (same pattern as the 1-minute
+`strategy.multi_timeframe.aligned_signal`), and added `spread_cost` support
+to the swing backtest engine (it didn't have any before).
+
+First pass (1.5x ATR, 2:1 reward:risk, 8h hold, default 1-minute-tuned
+`lookback=40, swing_order=3`): stop-hunt bare was the only promising one
+(248 trades, +8.1%, avg R 0.05) — candle confirmation, which helps a lot at
+1-minute, **hurt** both stop-hunt and breakout here (a genuine per-timeframe
+finding, not a bug). Full 8-combo exit-parameter grid on stop-hunt/breakout
+bare found the best config: stop-hunt, 1.5x ATR, 2:1, 4h hold — 252 trades,
+36.9% win, +15.52%, avg R 0.08, max DD 12.95%.
+
+Then swept `lookback`/`swing_order` (untested until now — inherited
+unchanged from 1-minute) at that exit setting. `lookback=80` produced 0
+trades at every `swing_order` — a **test-harness artifact**, not a result:
+`simulate_swing`'s `entry_window` caps the bars handed to the signal at 60,
+so a signal requesting 80 can never fire; not a real backtest of that
+setting. Excluding that, `swing_order=5` (a stricter, more isolated swing
+point) beat `swing_order=3` at every lookback tested:
+
+| Config | Spread | Trades | Win% | Return% | Avg R | Max DD% |
+|---|---|---|---|---|---|---|
+| lookback=20, order=5 | $0 | 119 | 41.2% | +14.92% | 0.18 | 10.31% |
+| lookback=20, order=5 | $0.40 (typical) | 119 | 40.3% | +9.01% | 0.11 | 11.04% |
+| lookback=20, order=5 | $1.00 (wide) | 118 | 40.7% | +1.92% | +0.03 | 11.14% |
+| lookback=40, order=5 | $0 | 194 | 39.2% | +19.38% | 0.13 | 13.29% |
+| lookback=40, order=5 | $0.40 | 193 | 38.9% | +10.28% | 0.08 | 13.7% |
+| lookback=40, order=5 | $1.00 | 193 | 38.9% | -2.87% | -0.02 | 18.09% |
+
+**`lookback=20, swing_order=5` is the first config found anywhere in this
+project — 1-minute or 5-minute — that stays positive at the $1.00 "wide,
+kills the edge" spread test** (every other config, including the live
+`stophunt` default and `quality` mode, goes negative there). Likely
+mechanism: an hours-long hold with a wider ATR stop makes a fixed $ spread
+cost a much smaller fraction of each trade's risk than a 1-minute scalp's
+tight stop does — the exact effect hypothesized when this exploration
+started, now actually observed.
+
+**Not validated yet, on purpose left that way**: `swing_order=5` was the
+best of 12 lookback/swing-order combinations swept at one exit setting —
+real "best of many" risk, same caveat this project already applies to
+"best of six" entry approaches. Only tested on one 60-day window, no
+out-of-sample check yet (unlike `stophunt`, which was confirmed across two
+separate weeks before being trusted). Drawdown (10-11%) is still far worse
+than the scalping side (0.56-1.88%) even though it survives spread costs
+better. No live implementation exists at this timeframe — `main_gold.py`
+only knows how to poll every 30 seconds for 1-minute OANDA candles; a
+5-minute-cadence equivalent would be new work. Next step before building
+anything live: confirm this holds on a second, different 60-day window.
+
 ## Running it on your phone (Termux/Android)
 
 See [`termux/README.md`](termux/README.md) — runs `main_gold.py` directly on
