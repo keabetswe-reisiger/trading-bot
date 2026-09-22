@@ -605,6 +605,67 @@ breakout): **no entry signal tested so far has shown a real, consistent
 edge on gold at the 5-minute/hours-hold timeframe.** No live implementation
 exists at this timeframe, and none is warranted on this evidence.
 
+## Genuine multi-day swing/position trading (daily bars)
+
+`strategy/gold_position.py` + `backtest/gold_position.py` — not to be
+confused with `gold_swing.py`, which despite its name is actually intraday
+(5-minute entries, max 8h hold, never overnight). This is the real thing:
+entries on daily bars, confirmed by weekly/monthly trend, holds of days to
+weeks. Entry logic isn't reinvented — it reuses `stophunt_signal`,
+`breakout_signal`, and `divergence_signal` from the 1-minute/5-minute work,
+just handed daily bars with day-scale parameters instead of minute-scale
+ones.
+
+**The decisive advantage over every other timeframe in this project**:
+Yahoo has 25+ years of daily gold futures history (`GC=F`, 2000-08-30
+onward), vs. ~7-8 days at 1-minute or ~60 days at 5-minute. That's enough
+to do a **genuine train/test split by calendar period** — discover on one
+era, validate on a completely separate, later, never-touched era — instead
+of splitting one continuous window after the fact (which is all that was
+possible at 1-minute or 5-minute, and is exactly what caught the false
+"breakthrough" in the 5-minute section above).
+
+**Discovery (train: 2000-08-30 to 2017-12-29, 4,346 bars)**: `stop-hunt`
+doesn't transfer to this timeframe (87 trades, avg R -0.03). `breakout` and
+`divergence` (RSI momentum fading against a new price extreme) both look
+strong — `divergence` especially: **every one of 12 exit-parameter
+combinations tested came back with positive avg R** (0.18 to 0.78), not
+just one lucky cell.
+
+**Validation (test: 2018-01-02 to 2026-09-22, 2,194 bars — spans the
+2018-2019 range, the 2020 COVID crash/spike, the 2022-2023 rate-hike bear
+market, and the recent rally — never touched until config was chosen from
+train alone):**
+
+| Config | Train Avg R | Test Avg R | Test Win% | Test Trades | Test Max DD |
+|---|---|---|---|---|---|
+| divergence, 1.5x ATR / 3:1 RR / 40d hold | 0.78 | 0.64 | 42.9% | 35 | 5.6% |
+| divergence, 1.5x ATR / 2:1 RR / 20d hold | 0.39 | 0.24 | 43.6% | 39 | 5.76% |
+| divergence, 2.5x ATR / 2:1 RR / 20d hold | 0.39 | 0.32 | 55.6% | 27 | 3.48% |
+| breakout, 2.5x ATR / 3:1 RR / 40d hold | 0.31 | 0.43 | 42.6% | 47 | 4.03% |
+
+**Every config held its sign and stayed in the same ballpark on genuinely
+unseen data.** This is qualitatively different from the 5-minute result
+above, which flipped from strongly negative to strongly positive between
+the two halves of one sample — here, train and test agree.
+
+**Spread-cost tested on the held-out period and barely moves at all**:
+avg R for the best config goes 0.64 → 0.63 ($0.40 spread) → 0.61 ($1.00
+spread wide). At this hold length (days to weeks), the dollar move per
+trade dwarfs a few cents of spread, so this timeframe is close to
+spread-immune — a real structural advantage over every intraday result in
+this project, where spread cost was consistently the thing that killed or
+badly dented the edge.
+
+**Bottom line**: this is the first strategy in this project validated with
+genuine, independent, multi-year, multi-regime out-of-sample testing, and
+it passed. `divergence, 2.5x ATR / 2:1 RR / 20d hold` is the most
+conservative pick (smallest train→test drop-off: 0.39→0.32, highest win
+rate, lowest drawdown). No live implementation exists yet — this would be
+new work (`main_gold.py` only knows how to poll every 30 seconds for
+1-minute OANDA candles; a daily-cadence equivalent, probably checking once
+near each day's rollover, would need to be built from scratch).
+
 ## Running it on your phone (Termux/Android)
 
 See [`termux/README.md`](termux/README.md) — runs `main_gold.py` directly on
