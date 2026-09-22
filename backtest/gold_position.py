@@ -24,7 +24,9 @@ def fetch_daily_bars(symbol: str = "GC=F", period: str = "max", retries: int = 3
             break
         time.sleep(5)
     else:
-        return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+        empty = pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+        empty.index = pd.DatetimeIndex([], name="time")
+        return empty
     if isinstance(raw.columns, pd.MultiIndex):
         raw.columns = raw.columns.get_level_values(0)
     return raw.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].dropna()

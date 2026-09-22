@@ -682,12 +682,26 @@ Verified against the real second OANDA practice account (not just stubs):
 `get_equity()`, `is_tradeable()`, `get_current_spread()`, and
 `get_recent_daily_bars()` all confirmed working. Real-money-relevant
 observation from that live check: current gold price (~$4,300) is more
-than double every level used in this project's backtests (~$2,000), and
-the live spread observed was $1.61 — wider than the "$1.00 = wide" spread
-test used throughout this project. Not yet re-validated whether the
-spread-robustness findings above hold in relative terms at this much
-higher price level; worth revisiting before fully trusting the
-spread-immunity claim going forward.
+than double every level used in this project's backtests when they were
+first run (~$2,000) — though confirmed Yahoo's `GC=F` data is current, not
+stale (most recent closes ~$4,370-4,425, matching OANDA's live XAU_USD
+closely). The live spread observed was $1.61, wider than the "$1.00 =
+wide" spread test used everywhere else in this project.
+
+**Re-tested at the actual observed $1.61 spread — still holds.** Re-ran
+the held-out test period (2018-2026) at $1.61 instead of the old $1.00
+assumption:
+
+| Config | Avg R: $0 | $0.40 | $1.00 | **$1.61 (actual live)** |
+|---|---|---|---|---|
+| divergence, 1.5x/3:1/40d | 0.64 | 0.63 | 0.61 | **0.59** |
+| divergence, 2.5x/2:1/20d (default) | 0.32 | 0.31 | 0.30 | **0.29** |
+| breakout, 2.5x/3:1/40d | 0.43 | 0.42 | 0.41 | **0.40** |
+
+Barely moves at any spread level tested, including the real one observed
+live today. The spread-immunity claim holds at actual current market
+conditions, not just the backtest's original assumptions — this timeframe
+really is close to spread-cost-immune, confirmed rather than assumed.
 
 ## Running it on your phone (Termux/Android)
 
