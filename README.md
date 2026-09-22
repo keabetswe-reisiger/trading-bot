@@ -285,10 +285,18 @@ than they were, not better — so this wasn't a case of a bug inflating a
 result we then trusted. There's a second bug in the same area, not yet
 fixed: the live bots (`main.py`, `main_gold.py`) never called
 `record_closed_trade()` at all, meaning the live daily-loss-limit has never
-actually tracked realized P&L — it was decorative. **Now fixed for
-`main_gold.py`** (fetches the last closed trade's realized P&L from OANDA
-when a position disappears between polls) but **`main.py` — the stock bot —
-still has this gap**, unaddressed since gold has been the active focus.
+actually tracked realized P&L — it was decorative. **Now fixed for both
+bots.** `main_gold.py` fetches the last closed trade's realized P&L from
+OANDA directly (`realizedPL` field) when a position disappears between
+polls. `main.py` needed a different approach — Alpaca doesn't expose
+realized P&L per closed position the way OANDA does, only fill prices —
+so `AlpacaBroker.get_last_closed_fill_price()` reads the exit fill price
+from the closed bracket order/leg, and `main.py` combines that with its own
+locally-tracked entry price/qty (already known from when it submitted the
+order) to compute P&L itself, same math as everywhere else in this project.
+Verified with a stub test (both the TP/SL-bracket-closed-it path and the
+max-hold-time forced-close path) since there are no live Alpaca credentials
+here to test against directly.
 
 **Two new ideas from trading-education videos, tested and adopted — best
 result in this project so far.** From a breakdown of an auction-market-

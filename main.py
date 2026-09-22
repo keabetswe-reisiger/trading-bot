@@ -23,7 +23,16 @@ from risk.risk_manager import RiskManager
 from strategy.exits import compute_exit_levels
 from strategy.multi_timeframe import TIMEFRAMES, aligned_signal
 
-_open_since: dict[str, datetime] = {}  # symbol -> when we opened it (in-memory only)
+_open_trades: dict[str, dict] = {}  # symbol -> {opened_at, entry_price, qty, side} (in-memory only)
+
+
+def _record_last_trade_pnl(broker: AlpacaBroker, risk: RiskManager, symbol: str, trade: dict, at: datetime) -> None:
+    exit_price = broker.get_last_closed_fill_price(symbol)
+    if exit_price is None:
+        return
+    direction = 1 if trade["side"] == "long" else -1
+    pnl = (exit_price - trade["entry_price"]) * trade["qty"] * direction
+    risk.record_closed_trade(pnl, at=at)
 
 
 def run_once(broker: AlpacaBroker, risk: RiskManager) -> None:
@@ -32,18 +41,23 @@ def run_once(broker: AlpacaBroker, risk: RiskManager) -> None:
         return
 
     positions = broker.get_open_positions()
+    now = datetime.now(timezone.utc)
 
-    for symbol, entered_at in list(_open_since.items()):
+    for symbol, trade in list(_open_trades.items()):
         if symbol not in positions:
-            _open_since.pop(symbol, None)
+            # Position is gone without us closing it — the broker's TP/SL
+            # bracket order closed it.
+            _record_last_trade_pnl(broker, risk, symbol, trade, now)
+            _open_trades.pop(symbol, None)
             continue
-        held_minutes = (datetime.now(timezone.utc) - entered_at).total_seconds() / 60
+        held_minutes = (now - trade["opened_at"]).total_seconds() / 60
         if held_minutes >= config.MAX_HOLD_MINUTES:
             print(f"{symbol}: max hold time reached ({held_minutes:.1f}m), closing.")
             broker.close_position(symbol)
-            _open_since.pop(symbol, None)
+            _record_last_trade_pnl(broker, risk, symbol, trade, now)
+            _open_trades.pop(symbol, None)
 
-    if risk.daily_loss_limit_hit():
+    if risk.daily_loss_limit_hit(at=now):
         print("Daily loss limit hit — no new positions today.")
         return
 
@@ -82,7 +96,7 @@ def run_once(broker: AlpacaBroker, risk: RiskManager) -> None:
         side = OrderSide.BUY if signal == "long" else OrderSide.SELL
         broker.submit_bracket_order(symbol, qty, side, entry_price, take_profit, stop_loss)
         log_trade(symbol, signal, qty, entry_price, take_profit, stop_loss)
-        _open_since[symbol] = datetime.now(timezone.utc)
+        _open_trades[symbol] = {"opened_at": datetime.now(timezone.utc), "entry_price": entry_price, "qty": qty, "side": signal}
         positions[symbol] = True
         print(f"Opened {signal} {qty}x{symbol} @ {entry_price:.2f} (TP {take_profit:.2f} / SL {stop_loss:.2f})")
 
