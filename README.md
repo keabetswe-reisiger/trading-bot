@@ -570,26 +570,32 @@ point) beat `swing_order=3` at every lookback tested:
 | lookback=40, order=5 | $0.40 | 193 | 38.9% | +10.28% | 0.08 | 13.7% |
 | lookback=40, order=5 | $1.00 | 193 | 38.9% | -2.87% | -0.02 | 18.09% |
 
-**`lookback=20, swing_order=5` is the first config found anywhere in this
-project — 1-minute or 5-minute — that stays positive at the $1.00 "wide,
-kills the edge" spread test** (every other config, including the live
-`stophunt` default and `quality` mode, goes negative there). Likely
-mechanism: an hours-long hold with a wider ATR stop makes a fixed $ spread
-cost a much smaller fraction of each trade's risk than a 1-minute scalp's
-tight stop does — the exact effect hypothesized when this exploration
-started, now actually observed.
+This looked like the first config anywhere in this project to survive a
+$1.00 "wide" spread test — but that claim didn't survive its own
+follow-up check. Yahoo's 5-minute data can't be re-fetched from a genuinely
+separate historical period (it's a rolling 60-day window from today, not a
+selectable range), so the closest available validation is splitting the
+same 60-day sample in half and checking both halves tell the same story:
 
-**Not validated yet, on purpose left that way**: `swing_order=5` was the
-best of 12 lookback/swing-order combinations swept at one exit setting —
-real "best of many" risk, same caveat this project already applies to
-"best of six" entry approaches. Only tested on one 60-day window, no
-out-of-sample check yet (unlike `stophunt`, which was confirmed across two
-separate weeks before being trusted). Drawdown (10-11%) is still far worse
-than the scalping side (0.56-1.88%) even though it survives spread costs
-better. No live implementation exists at this timeframe — `main_gold.py`
-only knows how to poll every 30 seconds for 1-minute OANDA candles; a
-5-minute-cadence equivalent would be new work. Next step before building
-anything live: confirm this holds on a second, different 60-day window.
+| Window | Trades | Win% | Return% (0 / $0.40 / $1.00) | Avg R (0 / $0.40 / $1.00) | Max DD |
+|---|---|---|---|---|---|
+| Full 60 days | 119 | 41.2% | +14.92% / +9.01% / +1.92% | 0.18 / 0.11 / +0.03 | 10.3% |
+| First half | 59 | 35.6% | -1.83% / -4.51% / -7.27% | -0.02 / -0.09 / -0.17 | 10.3% |
+| Second half | 54 | 50.0% | +18.62% / +15.98% / +12.09% | 0.47 / 0.41 / +0.32 | 4.2% |
+
+They don't. The first half loses money at every spread level; the second
+half is the best isolated result in this entire project. The "config that
+survives a $1 spread" was an average of a bad stretch and a great stretch,
+not a consistent effect — the textbook signature of `swing_order=5` being
+the best of 12 combinations swept on one sample, tuned to whatever happened
+in part of the data rather than reflecting real, durable behavior.
+
+**Verdict: rejected.** Doesn't generalize even within the single 60-day
+sample it came from, so there's no basis to trust it forward. Net result
+of the whole swing-timeframe exploration (crossover, then stop-hunt/
+breakout): **no entry signal tested so far has shown a real, consistent
+edge on gold at the 5-minute/hours-hold timeframe.** No live implementation
+exists at this timeframe, and none is warranted on this evidence.
 
 ## Running it on your phone (Termux/Android)
 
