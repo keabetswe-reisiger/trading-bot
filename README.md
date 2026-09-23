@@ -711,3 +711,25 @@ scripts to keep it alive in the background and auto-start on reboot. The code
 is also pushed to a private GitHub repo
 (`github.com/keabetswe-reisiger/trading-bot`) so it can be pulled onto any
 device, not just this one.
+
+## MetaTrader screenshot reader (comparison tool, not a live feed)
+
+`mt_screenshot_reader.py` reads price + RSI off a MetaTrader screenshot via
+OCR and applies the same RSI-extreme rule already used elsewhere in this
+project (`strategy/mt_screenshot_signal.py`, threshold logic shared with
+`gold_meanrev.py`'s RSI filter). It exists to answer one question: **does
+the MetaTrader feed disagree with OANDA often enough to matter?**
+
+It is deliberately not a port of stophunt/breakout/divergence — those need
+OHLC bar history, and a screenshot is a single snapshot. So this tool runs
+a simpler rule (RSI >= 70 → short, RSI <= 30 → long) than the live OANDA
+bot, by necessity, not as an upgrade. Run it side by side with
+`main_gold.py` on practice accounts and compare `logs/screenshot_signals.csv`
+against `logs/activity.jsonl` — if the two feeds mostly agree, MetaTrader
+isn't adding anything OANDA doesn't already give you.
+
+Setup: `sudo apt install tesseract-ocr` (or `pkg install tesseract-ocr` on
+Termux), then `pip install -r requirements.txt`. Usage and region-cropping
+notes are in the script's own docstring (`python3 mt_screenshot_reader.py
+--help`). Never places an order — signal-only, same "prove the edge before trusting
+it" approach as the rest of this project.
