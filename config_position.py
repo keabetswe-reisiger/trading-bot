@@ -39,7 +39,7 @@ STOP_MODE = "atr"  # the only mode validated at this timeframe
 ATR_PERIOD = int(os.getenv("POSITION_ATR_PERIOD", "14"))
 ATR_STOP_MULTIPLIER = float(os.getenv("POSITION_ATR_STOP_MULTIPLIER", "2.5"))
 REWARD_RISK_RATIO = float(os.getenv("POSITION_REWARD_RISK_RATIO", "2.0"))
-MAX_HOLD_DAYS = int(os.getenv("POSITION_MAX_HOLD_DAYS", "20"))
+MAX_HOLD_DAYS = int(os.getenv("POSITION_MAX_HOLD_DAYS", "30"))
 
 # Checked once a day, not polled continuously like the scalp bots — a daily
 # strategy has nothing new to see between one day's close and the next.

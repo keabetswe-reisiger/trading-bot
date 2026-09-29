@@ -733,3 +733,27 @@ Termux), then `pip install -r requirements.txt`. Usage and region-cropping
 notes are in the script's own docstring (`python3 mt_screenshot_reader.py
 --help`). Never places an order — signal-only, same "prove the edge before trusting
 it" approach as the rest of this project.
+
+### Stress tests (2026-09-29): regimes, other markets, long-only, hold length
+
+Scripts: `backtest/regime_multimarket.py`, `long_only_test.py`,
+`hold_days_test.py`, `hold_risk_test.py`. GC=F daily 2000-2026, $1.61 spread.
+
+- **Regimes** (trailing 250d return): up +0.43 avg R (33 trades), sideways
+  +0.23 (43; longs +0.39, shorts -0.04), down -0.58 (only 5 trades). 9 of 25
+  years lose; 2011-15 bear -0.20, 2016-19 range -0.11.
+- **Other markets, same untuned params**: silver, copper, oil, S&P, TLT,
+  EURUSD, USDJPY all ~0 or negative avg R; an 8-market portfolio lost 24%
+  (37% DD) vs gold-only +15% (9% DD). The edge is gold-specific.
+- **Long-only**: avg R 0.34 vs 0.26 but total R slightly lower and test-period
+  avg R identical (0.23 vs 0.24). No proven gain; shorts left on.
+- **Max-hold sweep (2.5x ATR, 2:1 RR)**: avg R rises with hold length on both
+  train and test (test: 10d -0.02, 20d 0.24, 30d 0.34, 40d 0.61, 60d 0.52;
+  only ~27-36 test trades). Longer holds also *lowered* drawdown
+  (7.5% -> 5.5% at 40d), stayed in market only 17-23% of the time and were
+  more spread-robust (40d avg R still +0.31 at a $5 spread). Caveat:
+  equity stayed below its prior peak ~9-14 years at every hold length, and
+  yearly returns are modest (~1-4% at 1% risk).
+- **Change made**: default `POSITION_MAX_HOLD_DAYS` 20 -> 30 (conservative
+  step; 40d looks better but rests on 28 test trades). Revisit 40d after
+  the 30d config has run on practice for a few months.
