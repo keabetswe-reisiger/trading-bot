@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Run this from the Termux host. Restarts the bot/dashboard tmux sessions if
-# either dies unexpectedly, and sends a phone notification (via Termux:API)
+# Run this from the Termux host. Restarts the bot/position-bot/dashboard tmux
+# sessions if any dies unexpectedly, and sends a phone notification (via Termux:API)
 # when something notable happens: a trade opens/closes, the daily loss limit
 # hits, or a loop error occurs.
 set -u
@@ -17,6 +17,10 @@ while true; do
   if ! tmux has-session -t goldbot 2>/dev/null; then
     termux-notification --title "Gold Bot" --content "Bot session died, restarting..." 2>/dev/null
     bash "$HOME/trading-bot/termux/run_gold_bot.sh"
+  fi
+  if ! tmux has-session -t goldpos 2>/dev/null; then
+    termux-notification --title "Gold Position Bot" --content "Position bot session died, restarting..." 2>/dev/null
+    bash "$HOME/trading-bot/termux/run_position_bot.sh"
   fi
   if ! tmux has-session -t golddash 2>/dev/null; then
     bash "$HOME/trading-bot/termux/run_dashboard.sh"

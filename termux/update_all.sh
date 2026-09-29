@@ -18,6 +18,7 @@ proot-distro login debian -- bash -lc \
 
 echo
 echo "Both copies updated. Restart to pick up the changes:"
-echo "  tmux kill-session -t goldbot 2>/dev/null; tmux kill-session -t golddash 2>/dev/null"
+echo "  tmux kill-session -t goldbot 2>/dev/null; tmux kill-session -t goldpos 2>/dev/null; tmux kill-session -t golddash 2>/dev/null"
 echo "  bash trading-bot/termux/run_gold_bot.sh"
+echo "  bash trading-bot/termux/run_position_bot.sh"
 echo "  bash trading-bot/termux/run_dashboard.sh"
